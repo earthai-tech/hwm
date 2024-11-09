@@ -12,8 +12,8 @@ build:
     python: "3.10"
 
 # Documentation formats (optional)
-formats:
-   - pdf
+# formats:
+#   - pdf
 
 # Python requirements for building docs
 python:
@@ -27,9 +27,9 @@ sphinx:
   configuration: doc/source/conf.py
 
 # Build options
-build:
+# build:
   # Enabling system packages for dependencies that may require additional libraries
-  apt_packages:
-    - pandoc
-    - dvipng
-    - graphviz  # If diagrams are needed
+ #  apt_packages:
+ #   - pandoc
+ #   - dvipng
+ #   - graphviz  # If diagrams are needed
