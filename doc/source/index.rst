@@ -3,11 +3,11 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-hwm Documentation
-=================
+HWM Documentation
+===================
 
-The `hwm` package offers a powerful and flexible implementation of the 
-Adaptive Hammerstein-Wiener (HW) Model, designed to handle dynamic system 
+The :code:`hwm` package offers a powerful and flexible implementation of the 
+Adaptive Hammerstein-Wiener Model (HWM), designed to handle dynamic system 
 modeling in intelligent computing environments. By integrating both linear 
 and nonlinear dependencies, the HW model is capable of effectively capturing 
 complex, time-dependent patterns in sequential data.
@@ -21,8 +21,8 @@ tasks, making it versatile for a variety of machine learning challenges.
 This documentation will guide you through installing and using the `hwm` package, 
 and provide detailed explanations of its components and functionalities.
 
-Overview of the Adaptive Hammerstein-Wiener Model
----------------------------------------------------
+Overview
+----------
 
 The Adaptive Hammerstein-Wiener (HW) Model is an extension of traditional 
 Hammerstein-Wiener systems, optimized for machine learning tasks. It consists 
@@ -62,11 +62,11 @@ Additionally, the package includes custom evaluation metrics:
   Evaluates the model's accuracy while taking into account the timing of 
   predictions, ensuring that the model performs well in time-sensitive tasks.
 
-Contents
-----------
+Exploration
+-------------
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
    :caption: Table of Contents:
 
    installation
@@ -81,7 +81,7 @@ Contents
    package_architecture
    development
 
-Subpackages
+Navigation
 -------------
 
 The `hwm` package is divided into several subpackages, each serving a specific 
@@ -89,7 +89,7 @@ function to ensure the model’s proper operation in various machine learning
 workflows:
 
 - **installation**:  
-  This subpackage provides all the necessary instructions to install and 
+  This subpackage provides all the necessary instructions to :ref:` install <installation>` and 
   configure the `hwm` package. It includes detailed steps for setting up 
   dependencies and environment requirements, ensuring users can get started 
   quickly and without hassle. It also includes troubleshooting tips for common 
@@ -97,25 +97,10 @@ workflows:
 
 - **examples**:  
   The `examples` subpackage includes a collection of scripts designed to 
-  demonstrate the HW model’s application across multiple domains. Examples 
+  demonstrate the HW model’s application across multiple domains. :ref:`Examples <examples>`
   cover tasks such as network intrusion detection, time series forecasting, 
   and industrial system monitoring, showcasing how the HW model can be used 
   to solve real-world problems.
-
-- **api**:  
-  The :mod:`hwm.api` subpackage contains core components that define the HW model’s 
-  settings, configurations, and hyperparameters. The primary file, `property.py`, 
-  manages model parameters and configuration options, allowing users to customize 
-  the model's behavior for different tasks. This is where users can define 
-  model-specific properties, such as input-output transformations, time lags, 
-  and regularization settings.
-
-- **compat**:  
-  The :mod:`hwm.compat` subpackage contains compatibility tools that help integrate 
-  the `hwm` model with other popular machine learning libraries, such as 
-  scikit-learn. This ensures seamless interoperability with standard data 
-  science workflows and simplifies the process of including the HW model into 
-  existing pipelines.
 
 - **datasets**:  
   The :mod:`hwm.datasets` subpackage includes utilities for managing datasets, including 
