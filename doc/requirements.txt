@@ -10,10 +10,6 @@ sphinxcontrib-napoleon>=0.7
 # sphinx-pdj-theme
 # sphinx_wagtail_theme
 
-# Sphinx extensions
-sphinx.ext.intersphinx
-sphinx.ext.todo
-
 # Project-specific requirements
 numpy<2.0
 scipy>=1.7.0
