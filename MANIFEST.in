@@ -1,0 +1,35 @@
+
+include *.rst
+recursive-include docs *
+recursive-include docs/_static *
+recursive-include examples *.txt *.py
+recursive-include gofast *.c *.cpp *.h *.pyx *.pxd *.pxi *.tp
+recursive-include gofast/datasets *.csv *.csv.gz *.rst *.jpg *.txt *.arff.gz *.json.gz *.zip *.pkl *.h5 *.joblib
+recursice-include gofast/utils *.npy 
+include LICENSE
+include README.md
+include CITATION.cff
+include pyproject.toml
+include MANIFEST.in
+include setup.py
+include setup.cfg
+include .coveragerc
+
+# exclude from sdist
+recursive-exclude asv_benchmarks *
+recursive-exclude examples *.png 
+recursive-exclude benchmarks *
+recursive-exclude build_tools *
+recursive-exclude maint_tools *
+recursive-exclude benchmarks *
+recursive-exclude .binder *
+recursive-exclude ci *
+recursive-exclude data * 
+recursive-exclude docs *.jpg *.mp4 *.png 
+
+exclude .readthedocs.yml 
+exclude CODE_OF_CONDUCT.md
+exclude ISSUE_TEMPLATE.md
+exclude venv
+
+global-exclude *.py[cod] __pycache__/* *.so *.dylib .coveragerc tests/*

@@ -1,0 +1,15 @@
+name: hwm-1.0.0
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10.*  # Use Python 3.10 and newer versions
+  - setuptools
+  - h5py
+  - scikit-learn>=1.1.2
+  - joblib>=1.2.0
+  - matplotlib>=3.5.2
+  - numpy<2.0
+  - pandas<2.0
+  - scipy>=1.9.0
+  - pytest
