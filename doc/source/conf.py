@@ -31,7 +31,7 @@ import hwm
 
 # -- Project information -----------------------------------------------------
 
-project = 'HWM: Adaptive Hammerstein-Wiener Modeling Toolkit'
+project = 'HWM: Adaptive Hammerstein-Wiener'
 copyright = '2024, Kouadio Laurent'
 author = 'Kouadio Laurent'
 release = hwm.__version__
@@ -56,9 +56,24 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 # -- Options for HTML output -------------------------------------------------
 
 # Using Read the Docs theme for a dynamic and modern look
-import sphinx_pdj_theme
-html_theme = 'sphinx_pdj_theme'
-html_theme_path = [sphinx_pdj_theme.get_html_theme_path()]
+# import sphinx_wagtail_theme
+# html_theme = 'sphinx_pdj_theme'
+# html_theme_path = [sphinx_pdj_theme.get_html_theme_path()]
+# extensions.append("sphinx_wagtail_theme")
+# html_theme = 'sphinx_wagtail_theme'
+html_theme='traditional'
+html_theme_options = {
+    # "logo": "path/to/logo.png",  # Add your own logo file path
+    "title": "HWM Documentation",  # Custom title for your project
+    #"header_links": [("Home", "/"), ("Docs", "/docs/"), ("API", "/api/")],  # Update links as needed
+    "show_search_button": True,
+    "show_nav": True,
+    "github_url": "https://github.com/earthai-tech/hwm",
+    "repository_url": "https://github.com/earthai-tech/hwm",
+    "use_edit_page_button": True,
+    "use_repository_button": True,
+    "use_issues_button": True,
+}
 
 #html_theme = "alabaster" #sphinx_book_theme" #'sphinx_rtd_theme'
 
@@ -73,11 +88,11 @@ html_theme_options = {
     'style_nav_header_background': '#2980B9',
 }
 
-# Custom sidebar templates
+#Custom sidebar templates
 html_sidebars = {
     '**': [
-        'about.html',
-        'navigation.html',
+        # 'about.html',
+#         'navigation.html',
         'searchbox.html',
     ]
 }
@@ -107,3 +122,8 @@ intersphinx_mapping = {
 
 # -- TODO settings -----------------------------------------------------------
 todo_include_todos = True
+
+html_static_path = ["_static"]
+html_css_files = ["custom.css"]
+
+

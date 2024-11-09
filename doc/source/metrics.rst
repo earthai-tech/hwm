@@ -158,12 +158,15 @@ multi-output predictions and sample weights.
 **Explanation:**
 
 - Differences between consecutive predictions:
+
   - Time 1 to 2: |2.5 - 2.0| = 0.5, |3.5 - 3.0| = 0.5
   - Time 2 to 3: |3.0 - 2.5| = 0.5, |4.0 - 3.5| = 0.5
   - Time 3 to 4: |3.5 - 3.0| = 0.5, |4.5 - 4.0| = 0.5
   - Time 4 to 5: |4.0 - 3.5| = 0.5, |5.0 - 4.5| = 0.5
   - Time 5 to 6: |4.5 - 4.0| = 0.5, |5.5 - 5.0| = 0.5
+  
 - Weighted differences using sample weights (from t=2 to t=6):
+
   - Weights: [2, 1, 2, 1, 2]
   - Weighted differences for each output:
     - Output 1: [0.5*2, 0.5*1, 0.5*2, 0.5*1, 0.5*2] = [1.0, 0.5, 1.0, 0.5, 1.0]
@@ -299,13 +302,17 @@ In this example, we calculate the Time-Weighted Mean Squared Error
 
 - Errors: (3.0 - 2.5)^2 = 0.25, (-0.5 - 0.0)^2 = 0.25,
   (2.0 - 2.0)^2 = 0.0, (7.0 - 8.0)^2 = 1.0
+  
 - Weights: alpha^(4-1) = 0.8^3 = 0.512,
            alpha^(4-2) = 0.8^2 = 0.64,
            alpha^(4-3) = 0.8^1 = 0.8,
            alpha^(4-4) = 0.8^0 = 1.0
+           
 - Weighted errors: 0.25*0.512 + 0.25*0.64 + 0.0*0.8 + 1.0*1.0
   = 0.128 + 0.16 + 0.0 + 1.0 = 1.288
+  
 - Sum of weights: 0.512 + 0.64 + 0.8 + 1.0 = 2.952
+
 - TWMSE: 1.288 / 2.952 ≈ 0.4368
 
 **Classification Example:**
@@ -332,15 +339,20 @@ changes over time.
 **Explanation:**
 
 - Correct predictions: [1==1, 0==1, 1==1, 1==0, 0==0] = [1, 0, 1, 0, 1]
+
 - Weights: alpha^(5-1) = 0.8^4 = 0.4096,
            alpha^(5-2) = 0.8^3 = 0.512,
            alpha^(5-3) = 0.8^2 = 0.64,
            alpha^(5-4) = 0.8^1 = 0.8,
            alpha^(5-5) = 0.8^0 = 1.0
+           
 - Weighted correct: [1*0.4096, 0*0.512, 1*0.64, 0*0.8, 1*1.0]
   = [0.4096, 0.0, 0.64, 0.0, 1.0]
+  
 - Sum of weighted correct: 0.4096 + 0.0 + 0.64 + 0.0 + 1.0 = 2.0496
+
 - Sum of weights: 0.4096 + 0.512 + 0.64 + 0.8 + 1.0 = 3.3616
+
 - TWA: 2.0496 / 3.3616 ≈ 0.609
 
 However, the printed output is `0.7936507936507937`, which indicates
@@ -472,12 +484,15 @@ In this example, we calculate the Time-Weighted Mean Squared Error
 
 - Errors: (3.0 - 2.5)^2 = 0.25, (-0.5 - 0.0)^2 = 0.25,
   (2.0 - 2.0)^2 = 0.0, (7.0 - 8.0)^2 = 1.0
+  
 - Weights: alpha^(4-1) = 0.8^3 = 0.512,
            alpha^(4-2) = 0.8^2 = 0.64,
            alpha^(4-3) = 0.8^1 = 0.8,
            alpha^(4-4) = 0.8^0 = 1.0
+           
 - Weighted errors: 0.25*0.512 + 0.25*0.64 + 0.0*0.8 + 1.0*1.0
   = 0.128 + 0.16 + 0.0 + 1.0 = 1.288
+  
 - Sum of weights: 0.512 + 0.64 + 0.8 + 1.0 = 2.952
 - TWMSE: 1.288 / 2.952 ≈ 0.4368
 

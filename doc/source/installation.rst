@@ -148,7 +148,7 @@ installed with the package.
 
 Getting Started
 -----------------
-Once installed, refer to the :ref:`API Reference <api_ref>` 
+Once installed, refer to the :ref:`API Reference <api>` 
 for detailed examples and guides on using `hwm` for dynamic 
 system modeling, regression, and data analysis tasks.
 

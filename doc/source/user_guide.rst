@@ -197,7 +197,7 @@ Best Practices
 
 Contributions and Feedback
 --------------------------
-Contributions are welcomed! Follow the :ref:`Development Guide <development_guide>` 
+Contributions are welcomed! Follow the :ref:`Development Guide <development>` 
 for instructions on contributing to `hwm`. Feedback and suggestions 
 are also appreciated to improve the package’s functionality and user 
 experience.
