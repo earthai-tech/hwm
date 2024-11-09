@@ -89,7 +89,7 @@ function to ensure the model’s proper operation in various machine learning
 workflows:
 
 - **installation**:  
-  This subpackage provides all the necessary instructions to :ref:` install <installation>` and 
+  This subpackage provides all the necessary instructions to :ref:`install <installation>` and 
   configure the `hwm` package. It includes detailed steps for setting up 
   dependencies and environment requirements, ensuring users can get started 
   quickly and without hassle. It also includes troubleshooting tips for common 
