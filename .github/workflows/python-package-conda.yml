@@ -1,0 +1,61 @@
+name: Python Package using Conda
+
+on: [push, pull_request]
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v3
+
+    - name: Set up Conda Environment
+      uses: conda-incubator/setup-miniconda@v2
+      with:
+        activate-environment: hwm-1.0.0  # Updated environment name for HWM
+        environment-file: environment.yml
+        python-version: '3.10'  # Ensure compatibility with HWM requirements
+        auto-activate-base: false
+
+    - name: Set PYTHONPATH
+      run: |
+        echo "Setting PYTHONPATH"
+        echo "PYTHONPATH=$PYTHONPATH:$(pwd)/hwm" >> $GITHUB_ENV  # Updated path for HWM
+
+    - name: Install Dependencies
+      run: |
+        python -m pip install --user "numpy<2" cython  # Install specific dependencies
+
+    - name: Compile Cython Modules
+      run: |
+        find . -name "*.pyx" -exec cythonize -i {} \;  # Compile all Cython .pyx files
+
+    - name: Install HWM Package
+      run: |
+        python -m pip install .  # Install the HWM package
+
+    - name: Configure Conda
+      run: |
+        echo "Configuring conda..."
+        conda config --set channel_priority strict
+        conda config --set solver classic 
+
+    - name: Lint with flake8
+      run: |
+        python -m pip install flake8 
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
+    - name: Test with pytest
+      run: |
+        python -m pip install pytest pytest-xdist
+        pytest -n auto  # Utilize all available CPU cores for testing
+
+    - name: Debugging Information
+      if: failure()  # Executes only if previous steps fail
+      run: |
+        echo "Printing debug information..."
+        echo "PATH=$PATH"
+        conda info
+        conda list
