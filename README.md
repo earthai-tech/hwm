@@ -91,5 +91,5 @@ HWM is licensed under the BSD-3-Clause license. See the [LICENSE](LICENSE) file 
 
 ---
 
-For additional resources, visit the [User Guide](https://hwm.readthedocs.io/en/latest/user_guide.html) and explore our rich set of tools designed for dynamic system modeling and time-series analysis.
+For additional resources, visit the [User Guide](https://hwm.readthedocs.io/en/latest/user_guide.html) and explore our rich tools for dynamic system modeling and time-series analysis. A practical [example of network intrusion detection](https://github.com/earthai-tech/hwm/blob/main/examples/detailed_hwm_vs_lstm.ipynb) is the use of [KDD Cup 1999](https://kdd.ics.uci.edu/databases/kddcup99/kddcup99.html) dataset.
 
