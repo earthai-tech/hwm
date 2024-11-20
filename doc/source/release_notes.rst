@@ -16,8 +16,8 @@ hwm v1.1.0
   handle probability predictions. This allows users to pass either class labels 
   or probability distributions as predictions, providing greater flexibility 
   in evaluating classification models.
-
-  **Example:**
+  
+  *Example:*
 
   .. code-block:: python
 
@@ -46,7 +46,7 @@ hwm v1.1.0
   encountered in version 1.0.1 and enhances the model's scalability and performance when 
   working with extensive data.
 
-  **Example:**
+  *Example:*
 
   .. code-block:: python
 
