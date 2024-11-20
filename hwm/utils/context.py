@@ -4,8 +4,9 @@
 
 import time 
 import sys
+from typing import List, Dict, Optional 
 
-__all__=["EpochBar"] 
+__all__=["EpochBar", "ProgressBar"] 
 
 class EpochBar:
     """
@@ -125,16 +126,8 @@ class EpochBar:
         self.bar_length = bar_length
         self.delay = delay
         self.metrics = metrics if metrics is not None else {
-            'loss': 1.0, 'accuracy': 0.5, 'val_loss': 1.0, 'val_accuracy': 0.5}
+            'loss': 1.0, 'acc': 0.5, 'val_loss': 1.0, 'val_acc': 0.5}
         
-        # Initialize best metrics to track improvements
-        self.best_metrics_ = {}
-        for metric in self.metrics:
-            if "loss" in metric or "PSS" in metric:
-                self.best_metrics_[metric] = float('inf')  # For minimizing metrics
-            else:
-                self.best_metrics_[metric] = 0.0  # For maximizing metrics
-
 
     def __enter__(self):
         """
@@ -155,13 +148,15 @@ class EpochBar:
         This method will be called after all epochs are completed and 
         will display the best observed metrics across the training process.
         """
+  
         best_metric_display = " - ".join(
-            [f"{k}: {v:.4f}" for k, v in self.best_metrics_.items()]
+            [f"{k}: {v:.4f}" for k, v in self.metrics.items()]
         )
-        print("\nTraining complete!")
+        print()
         print(f"Best Metrics: {best_metric_display}")
 
-    def update(self, step, epoch, step_metrics={}):
+    def update(self, step, epoch, step_metrics=None,
+               is_epoch_over= False):
         """
         Update the metrics and refresh the progress bar at each training 
         step.
@@ -181,8 +176,10 @@ class EpochBar:
             provided, the values will override the default ones for that 
             step.
         """
+        if step_metrics is None: 
+            step_metrics = {}
+            
         time.sleep(self.delay)  # Simulate processing time per step
-    
         for metric in self.metrics:
             if step == 0:
                 # Initialize step value for the first step
@@ -197,7 +194,7 @@ class EpochBar:
                     ) / (step + 1)
                 else:
                     # For loss or PSS metrics, decrease value over time
-                    if "loss" in metric or "PSS" in metric:
+                    if "loss" in metric or "pss" in metric:
                         # Decrease metric value by a small step
                         default_value = max(
                             self.metrics[metric], 
@@ -214,31 +211,9 @@ class EpochBar:
             self.metrics[metric] = round(step_value, 4)  # Round to 4 decimal places
     
         # Update the best metrics and display progress
-        self._update_best_metrics()
-        self._display_progress(step, epoch)
+        self._display_progress(step, epoch, is_epoch_over= is_epoch_over)
 
-    def _update_best_metrics(self):
-        """
-        Update the best metrics based on the current values observed for 
-        each metric during training.
-
-        This method ensures that the best values for each metric are tracked 
-        by comparing the current value to the previously recorded best value. 
-        For metrics like loss, the best value is minimized, while for 
-        performance metrics, the best value is maximized.
-        """
-        for metric, value in self.metrics.items():
-            if "loss" in metric or "PSS" in metric:
-                # Track minimum values for loss and PSS metrics
-                if value < self.best_metrics_[metric]:
-                    self.best_metrics_[metric] = value
-            else:
-                # Track maximum values for other performance metrics
-                if value > self.best_metrics_[metric]:
-                    self.best_metrics_[metric] = value
-
-
-    def _display_progress(self, step, epoch):
+    def _display_progress(self, step, epoch, is_epoch_over=False):
         """
         Display the progress bar for the current step within the epoch.
     
@@ -271,11 +246,364 @@ class EpochBar:
         progress_bar = progress_bar.ljust(self.bar_length, '.')
         
         # Construct the display string for metrics
-        metric_display = " - ".join([f"{k}: {v:.4f}" for k, v in self.metrics.items()])
-        
+        # Exclude 'val_' metrics unless it's the final batch
+        if is_epoch_over:
+            # Include all metrics, assuming 'val_' metrics are present
+            metric_display = " - ".join([f"{k}: {v:.4f}" for k, v in self.metrics.items()])
+        else:
+            # Exclude 'val_' metrics
+            metric_display = " - ".join(
+                [f"{k}: {v:.4f}" for k, v in self.metrics.items() if not ( 
+                    k.startswith('val_') or k.find('twa')>=0)]
+                )
+            
         # Print the progress bar and metrics to the console
         sys.stdout.write(
             f"\r{step}/{self.steps_per_epoch} "
             f"[{progress_bar}] - {metric_display}"
         )
+        sys.stdout.flush()
+        
+
+class ProgressBar:
+    """
+    ProgressBar is a context manager for displaying a customizable progress bar 
+    similar to Keras' training progress display. It is designed to handle 
+    epoch-wise and batch-wise progress updates, providing real-time feedback 
+    on metrics such as loss and accuracy.
+
+    .. math::
+        \text{Progress} = \frac{\text{current step}}{\text{total steps}}
+
+    Attributes
+    ----------
+    total : int
+        Total number of epochs to be processed.
+    prefix : str, optional
+        String to prefix the progress bar display (default is empty).
+    suffix : str, optional
+        String to suffix the progress bar display (default is empty).
+    length : int, optional
+        Character length of the progress bar (default is 30).
+    decimals : int, optional
+        Number of decimal places to display for the percentage (default is 1).
+    metrics : List[str], optional
+        List of metric names to display alongside the progress bar 
+        (default is ['loss', 'accuracy', 'val_loss', 'val_accuracy']).
+    steps : Optional[int], optional
+        Number of steps per epoch. If not provided, defaults to `total`.
+
+    Methods
+    -------
+    __enter__()
+        Initializes the progress bar context.
+    __exit__(exc_type, exc_value, traceback)
+        Finalizes the progress bar upon exiting the context.
+    update(iteration, epoch=None, **metrics)
+        Updates the progress bar with the current iteration and metrics.
+    reset()
+        Resets the progress bar to its initial state.
+
+    Examples
+    --------
+    >>> from hwm.utils.context import ProgressBar
+    >>> total_epochs = 5
+    >>> batch_size = 100
+    >>> with ProgressBar(total=total_epochs, 
+    ...                 prefix='Epoch', 
+    ...                 suffix='Complete', 
+    ...                 length=50) as pbar:
+    ...     for epoch in range(1, total_epochs + 1):
+    ...         print(f"Epoch {epoch}/{total_epochs}")
+    ...         for batch in range(1, batch_size + 1):
+    ...             # Simulate metric values
+    ...             metrics = {'loss': 0.1 * batch, 
+    ...                        'accuracy': 0.95 + 0.005 * batch, 
+    ...                        'val_loss': 0.1 * batch, 
+    ...                        'val_accuracy': 0.95 + 0.005 * batch}
+    ...             pbar.update(iteration=batch, epoch=epoch, **metrics)
+    ...             time.sleep(0.01)
+
+    >>> total_epochs = 3
+    >>> batch_size = 100
+    >>> epoch_data = [
+    ...    {
+    ...        'loss': 0.1235, 
+    ...        'accuracy': 0.9700, 
+    ...        'val_loss': 0.0674, 
+    ...        'val_accuracy': 0.9840
+    ...    },
+    ...    {
+    ...        'loss': 0.0917, 
+    ...        'accuracy': 0.9800, 
+    ...        'val_loss': 0.0673, 
+    ...        'val_accuracy': 0.9845
+    ...    },
+    ...    {
+    ...        'loss': 0.0623, 
+    ...        'accuracy': 0.9900, 
+    ...        'val_loss': 0.0651, 
+    ...        'val_accuracy': 0.9850
+    ...    },
+    ... ]
+
+    >>> with ProgressBar(
+    ...    total=total_epochs, 
+    ...    prefix="Steps", 
+    ...    suffix="Complete", 
+    ...    length=30, 
+    ...    metrics=['loss', 'accuracy', 'val_loss', 'val_accuracy']
+    ... ) as pbar:
+    ...    for epoch in range(1, total_epochs + 1):
+    ...        print(f"Epoch {epoch}/{total_epochs}")
+    ...        for batch in range(1, batch_size + 1):
+    ...            # Rotate through example data for simulation
+    ...            current_data = epoch_data[batch % len(epoch_data)]
+    ...           pbar.update(
+    ...                iteration=batch, 
+    ...                epoch=None, 
+    ...                **current_data
+    ...            )
+    ...            time.sleep(0.01)  # Simulate processing delay
+    ...        print()
+    
+    Notes
+    -----
+    - The progress bar dynamically updates in place, providing real-time 
+      feedback without cluttering the console.
+    - Metrics are tracked and the best metrics are displayed upon completion 
+      of the training process.
+
+    See Also
+    --------
+    tqdm : A popular progress bar library for Python.
+    rich.progress : A rich library for advanced progress bar visualizations.
+
+    References
+    ----------
+    .. [1] Vaswani, A., Shazeer, N., Parmar, N., Uszkoreit, J., 
+           Jones, L., Gomez, A. N., ... & Polosukhin, I. (2017). 
+           Attention is all you need. In Advances in neural information 
+           processing systems (pp. 5998-6008).
+    """
+
+    _default_metrics: List[str] = ['loss', 'accuracy', 'val_loss', 'val_accuracy']
+
+    def __init__(
+        self,
+        total: int,
+        prefix: str = '',
+        suffix: str = '',
+        length: int = 30,
+        steps: Optional[int] = None,
+        decimals: int = 1,
+        metrics: Optional[List[str]] = None
+    ):
+        self.total = total
+        self.prefix = prefix
+        self.suffix = suffix
+        self.length = length
+        self.decimals = decimals
+        self.metrics: List[str] = metrics 
+        self.iteration: int = 0
+        self.steps: int = steps if steps is not None else total
+        self.start_time: Optional[float] = None
+
+        # Initialize best metrics to track improvements
+        self.best_metrics_: Dict[str, float] = {}
+        if self.metrics is not None: 
+            self.metrics: List[str] = metrics if metrics is not None else self._default_metrics
+            
+            for metric in self.metrics:
+                if "loss" in metric or "pss" in metric:
+                    self.best_metrics_[metric] = float('inf')  # For minimizing metrics
+                else:
+                    self.best_metrics_[metric] = 0.0  # For maximizing metrics
+
+    def __enter__(self):
+        """
+        Enters the runtime context related to this object.
+
+        Returns
+        -------
+        ProgressBar
+            The ProgressBar instance itself.
+        """
+        self.start_time = time.time()
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        """
+        Exits the runtime context and performs final updates.
+
+        Parameters
+        ----------
+        exc_type : type
+            The exception type.
+        exc_value : Exception
+            The exception instance.
+        traceback : TracebackType
+            The traceback object.
+        """
+        # Final update to reach 100% completion
+        if self.metrics is not None:
+            best_metric_display = " - ".join(
+                [f"{k}: {v:.4f}" for k, v in self.best_metrics_.items()]
+            )
+            print()
+            print(f"Best Metrics: {best_metric_display}")
+            
+        print()
+
+    def update(self, iteration: int, epoch: Optional[int] = None, **metrics):
+        """
+        Updates the progress bar with the current iteration and metrics.
+
+        Parameters
+        ----------
+        iteration : int
+            The current iteration or batch number within the epoch.
+        epoch : Optional[int], optional
+            The current epoch number (default is None).
+        **metrics : dict
+            Arbitrary keyword arguments representing metric names and their 
+            current values (e.g., loss=0.1, accuracy=0.95).
+        """
+        self.iteration = iteration
+        progress = self._get_progress(iteration)
+        time_elapsed = time.time() - self.start_time if self.start_time else 0.0
+        self._print_progress(progress, epoch, time_elapsed, **metrics)
+
+    def reset(self):
+        """
+        Resets the progress bar to its initial state.
+
+        This method is useful for resetting the progress bar at the start 
+        of a new epoch or training phase.
+        """
+        self.iteration = 0
+        self.start_time = time.time()
+        self._print_progress(0.0)
+
+    def _get_progress(self, iteration: int) -> float:
+        """
+        Calculates the current progress as a float between 0 and 1.
+
+        Parameters
+        ----------
+        iteration : int
+            The current iteration or batch number within the epoch.
+
+        Returns
+        -------
+        float
+            The progress ratio, constrained between 0 and 1.
+        """
+        progress = iteration / self.steps
+        return min(progress, 1.0)
+
+    def _format_metrics(self, **metrics) -> str:
+        """
+        Formats the metrics for display alongside the progress bar.
+
+        Parameters
+        ----------
+        **metrics : dict
+            Arbitrary keyword arguments representing metric names and their 
+            current values.
+
+        Returns
+        -------
+        str
+            A formatted string of metrics.
+        """
+        if self.metrics is not None: 
+            formatted = ' - '.join(
+                f"{metric}: {metrics.get(metric, 0):.{self.decimals}f}" 
+                for metric in self.metrics
+            )
+            return formatted
+        else : 
+            return ''
+
+    def _update_best_metrics(self, metrics: Dict[str, float]):
+        """
+        Updates the best observed metrics based on current values.
+
+        For metrics related to loss or PSS, the best metric is the minimum 
+        observed value. For other performance metrics, the best metric is 
+        the maximum observed value.
+
+        Parameters
+        ----------
+        metrics : Dict[str, float]
+            A dictionary of current metric values.
+        """
+        if self.metrics is not None: 
+            for metric, value in metrics.items():
+                if "loss" in metric or "pss" in metric:
+                    # Track minimum values for loss and PSS metrics
+                    if value < self.best_metrics_.get(metric, float('inf')):
+                        self.best_metrics_[metric] = value
+                else:
+                    # Track maximum values for other performance metrics
+                    if value > self.best_metrics_.get(metric, 0.0):
+                        self.best_metrics_[metric] = value
+                
+    def _print_progress(
+        self, 
+        progress: float, 
+        epoch: Optional[int] = None,
+        time_elapsed: Optional[float] = None, 
+        **metrics
+    ):
+        """
+        Prints the progress bar to the console.
+
+        Parameters
+        ----------
+        progress : float
+            Current progress ratio between 0 and 1.
+        epoch : Optional[int], optional
+            Current epoch number (default is None).
+        time_elapsed : Optional[float], optional
+            Time elapsed since the start of the progress (default is None).
+        **metrics : dict
+            Arbitrary keyword arguments representing metric names and their 
+            current values.
+        """
+        completed = int(progress * self.length)  # Number of '=' characters
+        remaining = self.length - completed  # Number of '.' characters
+
+        if progress < 1.0:
+            # Progress bar with '>' indicating current progress
+            bar = '=' * completed + '>' + '.' * (remaining - 1)
+        else:
+            # Fully completed progress bar
+            bar = '=' * self.length
+
+        percent = f"{100 * progress:.{self.decimals}f}%"
+
+        # Display epoch information if provided
+        epoch_info = f"Epoch {epoch}/{self.total} " if epoch is not None else ''
+
+        # Display time elapsed if provided
+        time_info = (
+            f" - ETA: {time_elapsed:.2f}s" 
+            if time_elapsed is not None else ""
+        )
+
+        # Format and update best metrics
+        metrics_info = self._format_metrics(**metrics)
+        self._update_best_metrics(metrics)
+
+        # Construct the full progress bar display string
+        
+        display = (
+            f'\r{epoch_info}{self.prefix} {self.iteration}/{self.steps} '
+            f'[{bar}] {percent} {self.suffix} {metrics_info}{time_info}'
+        )
+
+        # Output the progress bar to the console
+        sys.stdout.write(display)
         sys.stdout.flush()

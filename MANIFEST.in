@@ -1,11 +1,5 @@
-
+# Include necessary documentation and metadata files
 include *.rst
-recursive-include docs *
-recursive-include docs/_static *
-recursive-include examples *.txt *.py
-recursive-include gofast *.c *.cpp *.h *.pyx *.pxd *.pxi *.tp
-recursive-include gofast/datasets *.csv *.csv.gz *.rst *.jpg *.txt *.arff.gz *.json.gz *.zip *.pkl *.h5 *.joblib
-recursice-include gofast/utils *.npy 
 include LICENSE
 include README.md
 include CITATION.cff
@@ -15,21 +9,29 @@ include setup.py
 include setup.cfg
 include .coveragerc
 
-# exclude from sdist
-recursive-exclude asv_benchmarks *
-recursive-exclude examples *.png 
-recursive-exclude benchmarks *
-recursive-exclude build_tools *
+# Include specific directories and files
+recursive-include docs *
+recursive-include docs/_static *
+recursive-include examples *.txt *.py
+
+# Include source files
+recursive-include hwm *.c *.cpp *.h *.pyx *.pxd *.pxi *.tp
+recursive-include hwm *
+
+# Exclude unnecessary files and directories from sdist
+recursive-exclude build *
 recursive-exclude maint_tools *
 recursive-exclude benchmarks *
 recursive-exclude .binder *
 recursive-exclude ci *
-recursive-exclude data * 
-recursive-exclude docs *.jpg *.mp4 *.png 
+recursive-exclude venv *
 
-exclude .readthedocs.yml 
+# Exclude specific file types in docs folder
+recursive-exclude docs *.jpg *.mp4 *.png
+
+# Exclude specific files globally
+exclude .readthedocs.yml
 exclude CODE_OF_CONDUCT.md
-exclude ISSUE_TEMPLATE.md
-exclude venv
 
+# Global exclusions for unnecessary compiled or temporary files
 global-exclude *.py[cod] __pycache__/* *.so *.dylib .coveragerc tests/*

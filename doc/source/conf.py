@@ -32,8 +32,8 @@ import hwm
 # -- Project information -----------------------------------------------------
 
 project = 'HWM: Adaptive Hammerstein-Wiener'
-copyright = '2024, Kouadio Laurent'
-author = 'Kouadio Laurent'
+copyright = '2024, L. Kouadio'
+author = 'LKouadio'
 release = hwm.__version__
 
 # -- General configuration ---------------------------------------------------

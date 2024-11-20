@@ -9,7 +9,9 @@ from ._core import (
     safe_slicing, 
     validate_noise, 
     validate_ratio, 
-    resample_data
+    resample_data, 
+    get_batch_size, 
+    batch_generator 
     )
 
 __all__= [
@@ -23,5 +25,7 @@ __all__= [
     'to_iterable',
     'validate_noise',
     'validate_ratio', 
-    'resample_data'
+    'resample_data', 
+    "get_batch_size", 
+    "batch_generator" 
  ]

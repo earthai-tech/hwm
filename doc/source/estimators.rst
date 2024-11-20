@@ -146,7 +146,7 @@ for fine-tuning the model's behavior during training. These include:
 Hammerstein-Wiener Classifier
 ===============================
 
-The `HammersteinWienerClassifier` is a dynamic system model for 
+The `HammersteinWienerClassifier`( :class:`hwm.estimators.HWClassifier` ) is a dynamic system model for 
 classification tasks. It utilizes the Hammerstein-Wiener model 
 structure, which is composed of a nonlinear input block, a linear 
 dynamic block, and a nonlinear output block. This allows it to capture 
@@ -225,7 +225,7 @@ and a system dynamics dataset.
     from sklearn.preprocessing import StandardScaler
     from sklearn.datasets import make_classification
     from sklearn.model_selection import train_test_split
-    from hwm.estimators import HammersteinWienerClassifier
+    from hwm.estimators import HWClassifier
 
     # Generate synthetic data
     X, y = make_classification(n_samples=1000, n_features=20, 
@@ -235,7 +235,7 @@ and a system dynamics dataset.
     )
 
     # Initialize classifier with nonlinear transformations
-    hw_classifier = HammersteinWienerClassifier(
+    hw_classifier = HWClassifier(
         nonlinear_input_estimator=StandardScaler(),
         nonlinear_output_estimator=StandardScaler(),
         p=2,
@@ -277,7 +277,7 @@ performance using `twa_score` and `prediction_stability_score`.
     import numpy as np
     from sklearn.preprocessing import StandardScaler
     from sklearn.model_selection import train_test_split
-    from hwm.estimators import HammersteinWienerClassifier
+    from hwm.estimators import HWClassifier
     from hwm.datasets import make_system_dynamics
     from hwm.metrics import twa_score, prediction_stability_score
     
@@ -303,7 +303,7 @@ performance using `twa_score` and `prediction_stability_score`.
     )
 
     # Initialize classifier
-    hw_classifier = HammersteinWienerClassifier(
+    hw_classifier = HWClassifier(
         p=3,
         nonlinear_input_estimator=StandardScaler(),
         nonlinear_output_estimator=StandardScaler(),
@@ -378,7 +378,7 @@ performance using `twa_score` and `prediction_stability_score`.
 Hammerstein-Wiener Regressor
 ==============================
 
-The :class:`~hwm.estimators.dynamic_system.HammersteinWienerRegressor` class implements a nonlinear regression 
+The :class:`~hwm.estimators.dynamic_system.HWRegressor` class implements a nonlinear regression 
 model based on the Hammerstein-Wiener (HW) architecture. This block-structured model combines a nonlinear 
 input transformation, a linear dynamic system block, and a nonlinear output transformation, making it highly 
 suitable for regression tasks where data exhibit complex, time-dependent relationships. The HW model is 
@@ -443,19 +443,19 @@ Attributes
 Example Usage
 ---------------
 
-Below are example applications of `HammersteinWienerRegressor`, 
+Below are example applications of :class:`hwm.estimators.HWRegressor`, 
 demonstrating initialization, training, and evaluation on synthetic data. 
 The first example shows time-series data, while the second highlights 
 financial trend forecasting.
 
 **Example 1: Basic Time-Series Regression**
 
-This example demonstrates using `HammersteinWienerRegressor` to train 
+This example demonstrates using `HWRegressor` to train 
 and predict on synthetic time-series data.
 
 .. code-block:: python
 
-    from hwm.estimators import HammersteinWienerRegressor
+    from hwm.estimators import HWRegressor
     from sklearn.preprocessing import StandardScaler
     from sklearn.datasets import make_regression
     from sklearn.model_selection import train_test_split
@@ -498,12 +498,12 @@ and predict on synthetic time-series data.
 
 **Example 2: Financial Market Trend Forecasting**
 
-This example demonstrates using `HammersteinWienerRegressor` on synthetic financial 
+This example demonstrates using `HWRegressor` on synthetic financial 
 trend data, emphasizing the model’s adaptability to financial forecasting tasks.
 
 .. code-block:: python
 
-    from hwm.estimators import HammersteinWienerRegressor
+    from hwm.estimators import HWRegressor
     from sklearn.preprocessing import StandardScaler
     from sklearn.model_selection import train_test_split
     from hwm.datasets import make_financial_market_trends
@@ -530,7 +530,7 @@ trend data, emphasizing the model’s adaptability to financial forecasting task
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
     # Initialize Hammerstein-Wiener Regressor
-    hw_regressor = HammersteinWienerRegressor(
+    hw_regressor = HWRegressor(
         p=3,
         nonlinear_input_estimator=StandardScaler(),
         nonlinear_output_estimator=StandardScaler(),
@@ -580,7 +580,7 @@ trend data, emphasizing the model’s adaptability to financial forecasting task
 
 .. seealso::
 
-    - :class:`~hwm.estimators.HammersteinWienerClassifier`
+    - :class:`~hwm.estimators.HWClassifier`
     - :class:`~sklearn.linear_model.SGDRegressor`
 
 

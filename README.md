@@ -32,26 +32,28 @@ import numpy as np
 from sklearn.datasets import make_classification
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
-from hwm.estimators import HammersteinWienerClassifier
+from hwm.estimators import HWClassifier
 from hwm.metrics import prediction_stability_score
 
 # Generate synthetic data
-X, y = make_classification(n_samples=1000, n_features=20)
+X, y = make_classification(n_samples=10000, n_features=20)
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
 
 # Initialize the model
-hw_model = HammersteinWienerClassifier(
+hw_model = HWClassifier(
     nonlinear_input_estimator=StandardScaler(),
     nonlinear_output_estimator=StandardScaler(),
     p=2,
-    loss="cross_entropy"
+    loss="cross_entropy", 
+    max_iter =10 
 )
 
 # Train and evaluate
 hw_model.fit(X_train, y_train)
 y_pred = hw_model.predict(X_test)
 stability_score = prediction_stability_score(y_pred)
-print(f"Prediction Stability Score: {stability_score:.4f}")
+
+print(f"\nPrediction Stability Score: {stability_score:.4f}")
 ```
 
 For more usage examples, see the [Examples Page](https://hwm.readthedocs.io/en/latest/examples.html).

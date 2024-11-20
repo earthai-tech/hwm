@@ -8,46 +8,40 @@ and regression tasks within the gofast library. These models are designed to
 handle complex, time-dependent data by combining dynamic system theory with 
 machine learning techniques.
 """
+
+import warnings 
 from collections import defaultdict
 from numbers import Real
 from typing import Any, Optional,Tuple
 
 import numpy as np
-from sklearn.base import (
-    ClassifierMixin,
-    RegressorMixin,
-)
+from sklearn.base import ClassifierMixin, RegressorMixin
 from sklearn.linear_model import SGDClassifier, SGDRegressor
-from sklearn.metrics import (
-    log_loss,
-    accuracy_score,
-    mean_squared_error,
-    mean_absolute_error,
-)
+from sklearn.metrics import log_loss, accuracy_score
 from sklearn.utils._param_validation import StrOptions
 from sklearn.utils import check_random_state 
 
 from ..compat.sklearn import Interval, get_sgd_loss_param
-from ..utils.context import EpochBar
-from ..utils._core import gen_X_y_batches 
+from ..decorators import copy_doc, enable_specific_warnings
 from ..metrics import twa_score, prediction_stability_score
-from ..utils.validator import (
-    check_is_fitted,
-    check_X_y,
-    check_array,
-    validate_length_range
-)
-from ._dynamic_system import BaseHammersteinWiener
 from ..utils._core import activator
+from ..utils._core import gen_X_y_batches, get_batch_size, batch_generator
+from ..utils.context import EpochBar, ProgressBar 
+from ..utils.validator import check_is_fitted, check_X_y
+from ..utils.validator import check_array, validate_length_range
 
+from ._dynamic_system import BaseHammersteinWiener
 try:
     from sklearn.utils.multiclass import type_of_target
 except:
     from ..tools.coreutils import type_of_target
 
-__all__= ["HammersteinWienerClassifier","HammersteinWienerRegressor" ]
+__all__= [ 
+     "HWRegressor", "HWClassifier", 
+     "HammersteinWienerClassifier", "HammersteinWienerRegressor", 
+     ]
 
-class HammersteinWienerRegressor(BaseHammersteinWiener, RegressorMixin):
+class HWRegressor(BaseHammersteinWiener, RegressorMixin):
     """
     Hammerstein-Wiener Regressor.
     
@@ -55,7 +49,7 @@ class HammersteinWienerRegressor(BaseHammersteinWiener, RegressorMixin):
     that consists of three main components: a nonlinear input block, a linear
     dynamic block, and a nonlinear output block. This structure allows the HW
     model to capture complex nonlinear relationships in data while maintaining
-    interpretability and computational efficiency.
+    interpretability and computational efficiency [1]_.
     
     .. math::
         \mathbf{y} = f_{\text{output}} \left( \mathbf{H} f_{\text{input}}
@@ -66,6 +60,8 @@ class HammersteinWienerRegressor(BaseHammersteinWiener, RegressorMixin):
     :math:`\mathbf{H}` represents the linear dynamic block (e.g., regression
     coefficients), and
     :math:`f_{\text{output}}` is the nonlinear output estimator.
+    
+    See more in :ref:`User guide <user_guide>`.
     
     Parameters
     ----------
@@ -141,7 +137,7 @@ class HammersteinWienerRegressor(BaseHammersteinWiener, RegressorMixin):
         The initial learning rate for the optimizer. Controls the step size
         during gradient descent updates.
     
-    max_iter : int, default=1000
+    max_iter : int, default=100
         Maximum number of iterations (epochs) for training the linear
         dynamic block.
     
@@ -170,7 +166,7 @@ class HammersteinWienerRegressor(BaseHammersteinWiener, RegressorMixin):
         available cores. If ``None``, the number of jobs is determined
         automatically.
     
-    verbose : int, default=0
+    verbose : int, default=1
         Controls the verbosity of the training process. Higher values
         result in more detailed logs.
     
@@ -209,11 +205,11 @@ class HammersteinWienerRegressor(BaseHammersteinWiener, RegressorMixin):
     
     Examples
     --------
-    >>> from hwm.estimators.dynamic_system import HammersteinWienerRegressor
+    >>> from hwm.estimators.dynamic_system import HWRegressor
     >>> from sklearn.preprocessing import StandardScaler
     >>> from sklearn.linear_model import SGDRegressor
     >>> # Initialize the Hammerstein-Wiener regressor with a linear scaler
-    >>> hw_regressor = HammersteinWienerRegressor(
+    >>> hw_regressor = HWRegressor(
     ...     nonlinear_input_estimator=StandardScaler(),
     ...     nonlinear_output_estimator=StandardScaler(),
     ...     p=2,
@@ -244,7 +240,7 @@ class HammersteinWienerRegressor(BaseHammersteinWiener, RegressorMixin):
     - The Hammerstein-Wiener model is particularly effective for systems
       where the input-output relationship can be decomposed into distinct
       nonlinear and linear components. This structure allows the model to
-      capture complex dynamics while maintaining interpretability.
+      capture complex dynamics while maintaining interpretability [2]_.
     
     - Proper selection of the number of lagged observations (`p`) is
       crucial for capturing the temporal dependencies in the data. A higher
@@ -253,7 +249,7 @@ class HammersteinWienerRegressor(BaseHammersteinWiener, RegressorMixin):
     
     - Time-based weighting can be used to emphasize recent observations
       more than older ones, which is useful in time series forecasting where
-      recent data points may be more indicative of future trends.
+      recent data points may be more indicative of future trends [3]_.
     
     - The choice of optimizer (`optimizer`) and learning rate
       (`learning_rate`) significantly impacts the convergence and performance
@@ -267,7 +263,7 @@ class HammersteinWienerRegressor(BaseHammersteinWiener, RegressorMixin):
         The base class for all estimators in scikit-learn, providing
         basic parameter management and utility methods.
     
-    HammersteinModel :class:`~gofast.estimators.HammersteinWienerClassifier`  
+    HammersteinModel :class:`~gofast.estimators.HWClassifier`  
         A concrete implementation of the Hammerstein-Wiener classification 
         model.
     
@@ -309,14 +305,14 @@ class HammersteinWienerRegressor(BaseHammersteinWiener, RegressorMixin):
         batch_size="auto", 
         optimizer='adam',
         learning_rate=0.001,
-        max_iter=1000,
+        max_iter=100,
         tol=1e-3,
         early_stopping=False,
         validation_fraction=0.1, 
         n_iter_no_change=5,
         random_state=None, 
         n_jobs=None,
-        verbose=0
+        verbose=1
     ):
         super().__init__(
             nonlinear_input_estimator=nonlinear_input_estimator,
@@ -343,7 +339,6 @@ class HammersteinWienerRegressor(BaseHammersteinWiener, RegressorMixin):
         self.delta = delta
         self.loss = loss
 
-        
     def fit(
         self,
         X: np.ndarray,
@@ -378,7 +373,7 @@ class HammersteinWienerRegressor(BaseHammersteinWiener, RegressorMixin):
         self : HammersteinWienerRegressor
             Fitted regressor instance.
         """
-        if self.verbose > 0:
+        if self.verbose > 1:
             print("Starting HammersteinWienerRegressor fit method.")
     
         # Initialize metrics
@@ -388,9 +383,9 @@ class HammersteinWienerRegressor(BaseHammersteinWiener, RegressorMixin):
         # instability
         metrics = {
             'loss': float('inf'),
-            'PSS': float('inf'),
+            'pss': float('inf'),
             'val_loss': float("inf"),
-            'val_PSS': float('inf'),
+            'val_pss': float('inf'),
         }
     
         # Initialize early stopping parameters
@@ -400,13 +395,16 @@ class HammersteinWienerRegressor(BaseHammersteinWiener, RegressorMixin):
         # Validate model parameters and preprocess input data
         self._validate_params()
         X, y = self._validate_input_data(X, y)
-        X, y = check_X_y(X, y, multi_output=True)
+        X, y = check_X_y(X, y, ensure_2d= True, multi_output=True)
+        X = X.astype(np.float32)
+        y = y.astype(np.float32)
+        
         X_transformed = self._apply_nonlinear_input(X, y)
         X_lagged = self._create_lagged_features(X_transformed)
         
         self._random_state= check_random_state(self.random_state)
         
-        if self.verbose > 0:
+        if self.verbose > 1:
             print("Fitting linear model with batch training.")
     
         # Initialize the linear dynamic model (SGDRegressor)
@@ -454,7 +452,7 @@ class HammersteinWienerRegressor(BaseHammersteinWiener, RegressorMixin):
         self._no_improvement_count = 0
         
         # Begin the training loop
-        if self.verbose == 0:
+        if self.verbose == 1:
             with EpochBar(
                 epochs=self.max_iter,
                 steps_per_epoch=len(X_y_batches),
@@ -475,19 +473,20 @@ class HammersteinWienerRegressor(BaseHammersteinWiener, RegressorMixin):
                         metrics=metrics,
                         epoch=epoch,
                         bar=progress_bar,
-                        epoch_metrics=epoch_metrics
+                        epoch_metrics=epoch_metrics, 
+                        
                     )
-                    print("\n")  
-                    
                     # Check for early stopping condition
                     if self.early_stopping and (
                         self._no_improvement_count >= self.n_iter_no_change
                     ):
                         print(
-                            f"Early stopping triggered after "
+                            f"\nEarly stopping triggered after "
                             f"{epoch + 1} epochs."
                         )
                         break
+                    print()
+                    
         else:
             for epoch in range(self.max_iter):
                 # Initialize epoch metrics
@@ -527,11 +526,10 @@ class HammersteinWienerRegressor(BaseHammersteinWiener, RegressorMixin):
         self.initial_loss_ = self._compute_loss(
             y, y_pred_initial
         )
-    
-        if self.verbose > 0:
+
+        if self.verbose > 1:
             print(f"Initial loss: {self.initial_loss_}")
-            print("Fit method completed.")
-        
+            print("Training complete!")
         return self
 
     def _initialize_model(self) -> None:
@@ -646,32 +644,32 @@ class HammersteinWienerRegressor(BaseHammersteinWiener, RegressorMixin):
             if batch_idx == 0:
                 # Initialize metrics with the first batch's results
                 metrics['loss'] = batch_loss
-                metrics['PSS'] = batch_pss
+                metrics['pss'] = batch_pss
             else:
                 # Update metrics by averaging with previous values
                 metrics['loss'] = (
                     metrics['loss'] * batch_idx + batch_loss
                 ) / (batch_idx + 1)
-                metrics['PSS'] = (
-                    metrics['PSS'] * batch_idx + batch_pss
+                metrics['pss'] = (
+                    metrics['pss'] * batch_idx + batch_pss
                 ) / (batch_idx + 1)
             
             # Update step_metrics with current batch's results
             step_metrics['loss'] = batch_loss
-            step_metrics['PSS'] = batch_pss
+            step_metrics['pss'] = batch_pss
             
             # Append current batch's metrics to epoch_metrics for tracking
             epoch_metrics['loss'].append(batch_loss)
-            epoch_metrics['PSS'].append(batch_pss)
+            epoch_metrics['pss'].append(batch_pss)
         
         except ValueError:
             # Ignore errors in metrics calculation (e.g., empty batch)
             pass
         
-        if self.verbose > 0:
+        if self.verbose > 1:
             # Print aggregated metrics if verbosity is set
             print(
-                f"loss: {metrics['loss']:.4f} - PSS: {metrics['PSS']:.4f}"
+                f"loss: {metrics['loss']:.4f} - PSS: {metrics['pss']:.4f}"
             )
         
         return step_metrics, epoch_metrics
@@ -744,22 +742,22 @@ class HammersteinWienerRegressor(BaseHammersteinWiener, RegressorMixin):
             
             if batch_idx == 0:
                 # Initialize validation metrics with the first batch's results
-                metrics['val_loss'] = val_loss
-                metrics['val_PSS'] = val_pss
+                metrics['val_loss'] = round (val_loss, 4)
+                metrics['val_pss'] = val_pss
             
             # Update step_metrics with current validation results
             step_metrics['val_loss'] = val_loss
-            step_metrics['val_PSS'] = val_pss
+            step_metrics['val_pss'] = val_pss
             
             # Append validation metrics to epoch_metrics for tracking
             epoch_metrics['val_loss'].append(val_loss)
-            epoch_metrics['val_PSS'].append(val_pss)
+            epoch_metrics['val_pss'].append(val_pss)
             
             if self.verbose > 1:
                 # Print validation metrics if verbosity is high
                 print(
                     f"val_loss: {val_loss:.4f} - "
-                    f"val_PSS: {val_pss:.4f}"
+                    f"val_pss: {val_pss:.4f}"
                 )
             
             if self.early_stopping:
@@ -768,7 +766,6 @@ class HammersteinWienerRegressor(BaseHammersteinWiener, RegressorMixin):
         
         return step_metrics, epoch_metrics
 
-
     def _compute_pred_loss(
         self,
         y_true: np.ndarray,
@@ -776,36 +773,53 @@ class HammersteinWienerRegressor(BaseHammersteinWiener, RegressorMixin):
     ) -> float:
         """
         Compute loss value from batch prediction.
-        
-        This method calculates the loss between the true target values and
-        the predicted values using the specified loss function.
-        
+    
+        This method calculates the loss between the true target values
+        and the predicted values using the specified loss function,
+        processing data in batches to handle large datasets efficiently.
+    
         Parameters
         ----------
         y_true : np.ndarray
             The true target values, shape (n_samples,).
         y_pred : np.ndarray
             The predicted target values, shape (n_samples,).
-        
+    
         Returns
         -------
         float
             The computed loss value.
         """
-        if self.loss_function_ == 'mae':
-            # Calculate Mean Absolute Error
-            loss = mean_absolute_error(y_true, y_pred)
-        else:
-            # Default to Mean Squared Error
-            loss = mean_squared_error(y_true, y_pred)
-        
-        return loss
-
+        if self.verbose > 1:
+            print("Starting loss computation.")
     
-    def predict(
-        self,
-        X: np.ndarray
-    ) -> np.ndarray:
+        total_loss = 0.0
+        n_samples = y_true.shape[0]
+        batch_size = get_batch_size(
+            y_true, y_pred, default_size=64, silence=True)
+    
+        for (y_true_batch, y_pred_batch) in batch_generator(
+            y_true, y_pred, batch_size=batch_size
+        ):
+            n_batch_samples = y_true_batch.shape[0]
+            if self.loss_function_ == 'mae':
+                # Mean absolute error in the batch
+                batch_loss = np.mean(np.abs(y_true_batch - y_pred_batch))
+            else:
+                # Mean squared error in the batch
+                batch_loss = np.mean((y_true_batch - y_pred_batch) ** 2)
+            # Weight batch loss by the number of samples in the batch
+            total_loss += batch_loss * n_batch_samples
+    
+        # Normalize by the total number of samples to get the average loss
+        loss = total_loss / n_samples
+    
+        if self.verbose > 1:
+            print(f"Computed loss: {loss}")
+    
+        return loss
+    
+    def predict(self, X: np.ndarray) -> np.ndarray:
         """
         Predict target values for input samples.
         
@@ -829,33 +843,48 @@ class HammersteinWienerRegressor(BaseHammersteinWiener, RegressorMixin):
         np.ndarray
             Predicted target values, shape (n_samples,).
         """
-        if self.verbose > 0:
+        if self.verbose > 1:
             print("Starting HammersteinWienerRegressor predict method.")
         
-        # Ensure the model is fitted before making predictions
         check_is_fitted(self, 'linear_model_')
+        X = check_array(X).astype(np.float32)
+        batch_size = get_batch_size(X, default_size=self.DEFAULT_BATCH_SIZE, 
+                                    silence=True)
+        total =X.shape[0]//batch_size 
+        y_pred_scaled_batches = []
+        if self.verbose==1: 
+            with ProgressBar(total=total + 1) as progress_bar: 
+                for batch_idx, (X_batch,) in enumerate (
+                        batch_generator(X, batch_size=batch_size)):
+                    X_transformed_batch = self._apply_nonlinear_input(X_batch)
+                    X_lagged_batch = self._create_lagged_features(X_transformed_batch)
+                    y_linear_batch = self.linear_model_.predict(X_lagged_batch)
+                    y_pred_batch = self._apply_nonlinear_output(y_linear_batch)
+                    y_pred_scaled_batch = self._scale_output(y_pred_batch)
+                    y_pred_scaled_batches.append(y_pred_scaled_batch)
+                    
+                progress_bar.update (iteration=batch_idx +1)
+                
+        else:  
+            for batch_idx, (X_batch,) in enumerate(
+                    batch_generator(X, batch_size=batch_size)):
+                if batch_idx==0 and self.verbose: 
+                    print("Batches prediction started ...")
+                if self.verbose > 0: 
+                    print(f"Batch {batch_idx + 1}/{batch_size}")
+                    
+                X_transformed_batch = self._apply_nonlinear_input(X_batch)
+                X_lagged_batch = self._create_lagged_features(X_transformed_batch)
+                y_linear_batch = self.linear_model_.predict(X_lagged_batch)
+                y_pred_batch = self._apply_nonlinear_output(y_linear_batch)
+                y_pred_scaled_batch = self._scale_output(y_pred_batch)
+                y_pred_scaled_batches.append(y_pred_scaled_batch)
+
+        y_pred_scaled = np.concatenate(y_pred_scaled_batches, axis=0)
         
-        # Validate and preprocess input data
-        X = check_array(X)
-        
-        # Apply nonlinear input transformation to capture nonlinear input relationships
-        X_transformed = self._apply_nonlinear_input(X)
-        
-        # Create lagged features for the linear dynamic block
-        X_lagged = self._create_lagged_features(X_transformed)
-        
-        # Get predictions from the linear dynamic block
-        y_linear = self.linear_model_.predict(X_lagged)
-        
-        # Apply nonlinear output transformation to the intermediate predictions
-        y_pred = self._apply_nonlinear_output(y_linear)
-        
-        # Apply optional scaling to constrain the output range
-        y_pred_scaled = self._scale_output(y_pred)
-        
-        if self.verbose > 0:
+        if self.verbose > 1:
             print("Predict method completed.")
-        
+
         return y_pred_scaled
 
     def _compute_loss(
@@ -888,45 +917,80 @@ class HammersteinWienerRegressor(BaseHammersteinWiener, RegressorMixin):
         ValueError
             If an unsupported loss function is specified.
         """
-        if self.verbose > 0:
-            print(f"Computing loss using {self.loss} loss function.")
-        
-        # Compute loss based on the specified function
-        if self.loss == "mse":
-            # Compute mean squared error over all samples and outputs
-            loss = np.mean((y_true - y_pred) ** 2)
-        
-        elif self.loss == "mae":
-            # Compute mean absolute error over all samples and outputs
-            loss = np.mean(np.abs(y_true - y_pred))
-        
-        elif self.loss == "huber":
-            # Compute Huber loss
-            residual = y_true - y_pred
-            loss = np.mean(np.where(
-                np.abs(residual) < self.delta,
-                0.5 * residual ** 2,
-                self.delta * (np.abs(residual) - 0.5 * self.delta)
-            ))
-        
-        elif self.loss == "time_weighted_mse":
-            # Compute time-weighted mean squared error
-            weights = self._compute_time_weights(len(y_true))
-            # Expand weights if y_true is multi-output
-            if y_true.ndim > 1:
-                weights = weights[:, np.newaxis]  # Shape (n_samples, 1)
-            loss = np.mean(weights * (y_true - y_pred) ** 2)
-        
-        else:
-            # Unsupported loss function
-            raise ValueError(f"Unsupported loss function: {self.loss}")
-        
-        if self.verbose > 0:
+
+        if self.verbose > 1:
+            print(f"Computing loss using {self.loss} loss function...")
+
+        # Convert data to float32 to reduce memory usage
+        y_true = y_true.astype(np.float32)
+        y_pred = y_pred.astype(np.float32)
+
+        # Smartly select batch size
+        batch_size = get_batch_size(
+            y_true, y_pred, default_size=self.DEFAULT_BATCH_SIZE, 
+            silence=True) 
+
+        # Compute loss in batches
+        loss = self._compute_loss_in_batches(y_true, y_pred, batch_size)
+
+        if self.verbose > 1:
             print(f"Computed loss: {loss}")
-        
+
         return loss
 
-    
+    def _compute_loss_in_batches(self, y_true, y_pred, batch_size):
+        n_samples = y_true.shape[0]
+
+        if self.loss == "mse":
+            total_error = 0.0
+            for y_true_batch, y_pred_batch in batch_generator(
+                    y_true, y_pred, batch_size=batch_size):
+                residual_batch = y_true_batch - y_pred_batch
+                total_error += np.sum(residual_batch ** 2)
+            loss = total_error / n_samples
+
+        elif self.loss == "mae":
+            total_error = 0.0
+            for y_true_batch, y_pred_batch in batch_generator(
+                    y_true, y_pred,  batch_size=batch_size):
+                residual_batch = y_true_batch - y_pred_batch
+                total_error += np.sum(np.abs(residual_batch))
+            loss = total_error / n_samples
+
+        elif self.loss == "huber":
+            total_loss = 0.0
+            delta = self.delta
+            for y_true_batch, y_pred_batch in batch_generator(
+                    y_true, y_pred,  batch_size=batch_size):
+                residual_batch = y_true_batch - y_pred_batch
+                abs_residual = np.abs(residual_batch)
+                squared_loss = 0.5 * residual_batch ** 2
+                linear_loss = delta * (abs_residual - 0.5 * delta)
+                huber_loss_batch = np.where(
+                    abs_residual <= delta,
+                    squared_loss,
+                    linear_loss
+                )
+                total_loss += np.sum(huber_loss_batch)
+            loss = total_loss / n_samples
+
+        elif self.loss == "time_weighted_mse":
+            weights = self._compute_time_weights(n_samples).astype(np.float32)
+            total_weighted_error = 0.0
+            total_weight = 0.0
+            for (y_true_batch, y_pred_batch, weights_batch) in batch_generator(
+                    y_true, y_pred, weights,  batch_size=batch_size):
+                residual_batch = y_true_batch - y_pred_batch
+                weighted_error_batch = weights_batch * residual_batch ** 2
+                total_weighted_error += np.sum(weighted_error_batch)
+                total_weight += np.sum(weights_batch)
+            loss = total_weighted_error / total_weight
+
+        else:
+            raise ValueError(f"Unsupported loss function: {self.loss}")
+
+        return loss
+
     def _compute_time_weights(
         self,
         n: int
@@ -948,35 +1012,35 @@ class HammersteinWienerRegressor(BaseHammersteinWiener, RegressorMixin):
         np.ndarray
             Array of computed weights, shape (n_samples,).
         """
-        if self.verbose > 0:
+        if self.verbose > 1:
             print(
                 f"Computing time weights using {self.time_weighting} method."
             )
-        
+        n = int(n)
         # Compute linear, exponential, or inverse weights based on user input
         if self.time_weighting == "linear":
             # Linear weights increasing from 0.1 to 1.0
-            weights = np.linspace(0.1, 1.0, n)
+            weights = np.linspace(0.1, 1.0, n, dtype=np.float32)
         
         elif self.time_weighting == "exponential":
             # Exponential weights increasing rapidly
-            weights = np.exp(np.linspace(0, 1, n)) - 1
+            weights = np.exp(np.linspace(0, 1, n, dtype=np.float32)) - 1
             weights /= weights.max()  # Normalize to [0, 1]
         
         elif self.time_weighting == "inverse":
             # Inverse weights decreasing over time
-            weights = 1 / np.arange(1, n + 1)
+            weights = 1 / np.arange(1, n + 1, dtype=np.float32)
             weights /= weights.max()  # Normalize to [0, 1]
         
         else:
             # Equal weighting if method is unrecognized or None
-            weights = np.ones(n)
+            weights = np.ones(n, dtype=np.float32)
         
-        if self.verbose > 0:
+        if self.verbose > 1:
             print(f"Time weights: {weights}")
         
         return weights
-
+    
     def _scale_output(
         self,
         y: np.ndarray
@@ -998,16 +1062,16 @@ class HammersteinWienerRegressor(BaseHammersteinWiener, RegressorMixin):
         np.ndarray
             Scaled predicted target values, shape (n_samples, [n_outputs]).
         """
+
         if self.output_scale is not None:
-            if self.verbose > 0:
+            if self.verbose > 1:
                 print("Scaling output predictions.")
             
-            self.output_scale = validate_length_range(
-                self.output_scale, param_name="Output scale"
-                ) 
-            # Apply min-max scaling based on specified output range
             y_min, y_max = self.output_scale
             
+            self.output_scale = validate_length_range(
+                        self.output_scale, param_name="Output scale"
+                        ) 
             # Compute min and max per output
             y_min_per_output = y.min(axis=0)
             y_max_per_output = y.max(axis=0)
@@ -1021,14 +1085,14 @@ class HammersteinWienerRegressor(BaseHammersteinWiener, RegressorMixin):
             # Scale to [y_min, y_max]
             y_scaled = y_norm * (y_max - y_min) + y_min
             
-            if self.verbose > 0:
+            if self.verbose > 1:
                 print(f"Scaled output range: [{y_min}, {y_max}]")
             
-            return y_scaled
+            return y_scaled.astype(np.float32)
         
         return y
 
-class HammersteinWienerClassifier(BaseHammersteinWiener, ClassifierMixin):
+class HWClassifier(BaseHammersteinWiener, ClassifierMixin):
     """
     Hammerstein-Wiener Classifier.
     
@@ -1051,7 +1115,9 @@ class HammersteinWienerClassifier(BaseHammersteinWiener, ClassifierMixin):
     The `HammersteinWienerClassifier` extends the base HW model to handle
     classification tasks. It incorporates a loss function tailored for
     classification, such as cross-entropy, enabling the model to predict
-    categorical outcomes effectively.
+    categorical outcomes effectively [1]_.
+    
+    See more in :ref:`User guide <user_guide>`.
     
     Parameters
     ----------
@@ -1115,7 +1181,7 @@ class HammersteinWienerClassifier(BaseHammersteinWiener, ClassifierMixin):
         The initial learning rate for the optimizer. Controls the step size
         during gradient descent updates.
     
-    max_iter : int, default=1000
+    max_iter : int, default=100
         Maximum number of iterations (epochs) for training the linear
         dynamic block.
     
@@ -1144,7 +1210,7 @@ class HammersteinWienerClassifier(BaseHammersteinWiener, ClassifierMixin):
         available cores. If ``None``, the number of jobs is determined
         automatically.
     
-    verbose : int, default=0
+    verbose : int, default=1
         Controls the verbosity of the training process. Higher values
         result in more detailed logs.
     
@@ -1186,7 +1252,7 @@ class HammersteinWienerClassifier(BaseHammersteinWiener, ClassifierMixin):
     
     Examples
     --------
-    >>> from hwm.estimators.dynamic_system import HammersteinWienerClassifier
+    >>> from gofast.estimators.dynamic_system import HWClassifier
     >>> from sklearn.preprocessing import StandardScaler
     >>> from sklearn.linear_model import SGDRegressor
     >>> from sklearn.datasets import make_classification
@@ -1198,7 +1264,7 @@ class HammersteinWienerClassifier(BaseHammersteinWiener, ClassifierMixin):
     ...     X, y, test_size=0.2, random_state=42
     ... )
     >>> # Initialize the Hammerstein-Wiener classifier with a linear scaler
-    >>> hw_classifier = HammersteinWienerClassifier(
+    >>> hw_classifier = HWClassifier(
     ...     nonlinear_input_estimator=StandardScaler(),
     ...     nonlinear_output_estimator=StandardScaler(),
     ...     p=2,
@@ -1230,12 +1296,12 @@ class HammersteinWienerClassifier(BaseHammersteinWiener, ClassifierMixin):
     - The Hammerstein-Wiener model is particularly effective for classification
       tasks where the input-output relationship can be decomposed into distinct
       nonlinear and linear components. This structure allows the model to
-      capture complex dynamics while maintaining interpretability.
+      capture complex dynamics while maintaining interpretability [2]_.
     
     - Proper selection of the number of lagged observations (`p`) is
       crucial for capturing the temporal dependencies in the data. A higher
       value of `p` allows the model to consider more past observations but may
-      increase computational complexity.
+      increase computational complexity [3]_.
     
     - Time-based weighting can be used to emphasize recent observations
       more than older ones, which is useful in time series classification
@@ -1245,7 +1311,7 @@ class HammersteinWienerClassifier(BaseHammersteinWiener, ClassifierMixin):
       (`learning_rate`) significantly impacts the convergence and performance
       of the linear dynamic block. It is advisable to experiment with
       different optimizers and learning rates based on the specific dataset
-      and problem.
+      and problem [4]_.
     
     See Also
     --------
@@ -1296,14 +1362,14 @@ class HammersteinWienerClassifier(BaseHammersteinWiener, ClassifierMixin):
         batch_size="auto", 
         optimizer='adam',
         learning_rate=0.001,
-        max_iter=1000,
+        max_iter=100,
         tol=1e-3,
         early_stopping=False,
         validation_fraction=0.1, 
         n_iter_no_change=5,
         random_state=None,
         n_jobs=None,
-        verbose=0
+        verbose=1
     ):
         super().__init__(
             nonlinear_input_estimator=nonlinear_input_estimator,
@@ -1363,7 +1429,7 @@ class HammersteinWienerClassifier(BaseHammersteinWiener, ClassifierMixin):
         self : HammersteinWienerClassifier
             Fitted classifier instance.
         """
-        if self.verbose > 0:
+        if self.verbose > 1:
             print("Starting HammersteinWienerClassifier fit method.")
     
         # Validate model parameters
@@ -1372,6 +1438,9 @@ class HammersteinWienerClassifier(BaseHammersteinWiener, ClassifierMixin):
         # Validate and preprocess input data
         X, y = self._validate_input_data(X, y)
         X, y = check_X_y(X, y, multi_output=True)
+        X = X.astype(np.float32)
+        y = y.astype(np.float32)
+        
         self._random_state = check_random_state(self.random_state)
         
         # Determine if the classification problem is multilabel
@@ -1439,10 +1508,10 @@ class HammersteinWienerClassifier(BaseHammersteinWiener, ClassifierMixin):
         # Initialize metrics for tracking model performance
         metrics = {
             'loss': float('inf'),
-            'accuracy': 0.0,
-            'TWA': 0.0,
+            'acc': 0.0,
             'val_loss': float("inf"),
-            'val_accuracy': 0.0
+            'val_acc': 0.0, 
+            'twa': 0.0,
         }
     
         # Initialize early stopping parameters
@@ -1450,7 +1519,7 @@ class HammersteinWienerClassifier(BaseHammersteinWiener, ClassifierMixin):
         self._no_improvement_count = 0
     
         # Begin the training loop
-        if self.verbose == 0:
+        if self.verbose == 1:
             with EpochBar(
                 epochs=self.max_iter,
                 steps_per_epoch=len(X_y_batches),
@@ -1473,17 +1542,18 @@ class HammersteinWienerClassifier(BaseHammersteinWiener, ClassifierMixin):
                         bar=progress_bar,
                         epoch_metrics=epoch_metrics
                     )
-                    print("\n")  
-                    
+              
                     # Check for early stopping condition
                     if self.early_stopping and (
                         self._no_improvement_count >= self.n_iter_no_change
                     ):
                         print(
-                            f"Early stopping triggered after "
+                            f"\nEarly stopping triggered after "
                             f"{epoch + 1} epochs."
                         )
                         break
+                    
+                    print()
         else:
             for epoch in range(self.max_iter):
                 # Initialize epoch metrics
@@ -1517,13 +1587,13 @@ class HammersteinWienerClassifier(BaseHammersteinWiener, ClassifierMixin):
         # Compute initial loss on the entire dataset
         y_linear = self._apply_linear_dynamic_block(X_lagged)
         self._apply_nonlinear_output(y_linear, y)
-        self.initial_loss_ = self._compute_loss(
-            y, self.predict_proba(X)
-        )
-    
-        if self.verbose > 0:
+        # Compute initial loss using batch processing
+        y_pred_proba = self.predict_proba(X)
+        self.initial_loss_ = self._compute_loss(y, y_pred_proba)
+        
+        if self.verbose > 1:
             print(f"Initial loss: {self.initial_loss_}")
-            print("Fit method completed.")
+            print("Training completed.")
         
         return self
 
@@ -1619,31 +1689,35 @@ class HammersteinWienerClassifier(BaseHammersteinWiener, ClassifierMixin):
         if X_val is not None and y_val is not None:
             # Predict probabilities on the validation set
             y_val_pred_proba = self.linear_model_.predict_proba(X_val)
-            
             # Compute validation loss and accuracy
             val_loss = log_loss(y_val, y_val_pred_proba)
-            val_accuracy = accuracy_score(
+            val_acc = accuracy_score(
                 y_val, self.linear_model_.predict(X_val)
             )
+            # Calculate TWA (Time-Weighted Accuracy) metric
+            val_twa = twa_score(y_val, y_val_pred_proba)
             
             if batch_idx == 0:
                 # Initialize validation metrics with the first batch's results
                 metrics['val_loss'] = val_loss
-                metrics['val_accuracy'] = val_accuracy
+                metrics['val_acc'] = val_acc
+                metrics['twa']= val_twa
             
             # Update step-specific validation metrics
             step_metrics['val_loss'] = val_loss
-            step_metrics['val_accuracy'] = val_accuracy
+            step_metrics['val_acc'] = val_acc
+            step_metrics['twa']=val_twa
             
             # Append validation metrics to epoch_metrics for tracking
             epoch_metrics['val_loss'].append(val_loss)
-            epoch_metrics['val_accuracy'].append(val_accuracy)
+            epoch_metrics['val_acc'].append(val_acc)
+            epoch_metrics['twa'].append(val_twa)
             
             if self.verbose > 1:
                 # Log validation metrics if verbosity is high
                 print(
                     f"val_loss: {val_loss:.4f} - "
-                    f"val_accuracy: {val_accuracy:.4f}"
+                    f"val_accuracy: {val_acc:.4f}"
                 )
             
             if self.early_stopping:
@@ -1697,47 +1771,38 @@ class HammersteinWienerClassifier(BaseHammersteinWiener, ClassifierMixin):
             
             # Calculate batch accuracy
             batch_accuracy = accuracy_score(y_true, y_pred)
-            
-            # Calculate TWA (Time-Weighted Accuracy) metric
-            batch_twa_accuracy = twa_score(y_true, y_pred)
-            
+        
             if batch_idx == 0:
                 # Initialize metrics with the first batch's results
                 metrics['loss'] = batch_loss
-                metrics['accuracy'] = batch_accuracy
-                metrics['TWA'] = batch_twa_accuracy
+                metrics['acc'] = batch_accuracy
+    
             else:
                 # Update metrics by averaging with previous values
                 metrics['loss'] = (
                     metrics['loss'] * batch_idx + batch_loss
                 ) / (batch_idx + 1)
-                metrics['accuracy'] = (
-                    metrics['accuracy'] * batch_idx + batch_accuracy
+                metrics['acc'] = (
+                    metrics['acc'] * batch_idx + batch_accuracy
                 ) / (batch_idx + 1)
-                metrics['TWA'] = (
-                    metrics['TWA'] * batch_idx + batch_twa_accuracy
-                ) / (batch_idx + 1)
-            
+  
             # Update step_metrics with current batch's results
             step_metrics['loss'] = batch_loss
-            step_metrics['accuracy'] = batch_accuracy
-            step_metrics['TWA'] = batch_twa_accuracy
-            
+            step_metrics['acc'] = batch_accuracy
+
             # Append current batch's metrics to epoch_metrics
             epoch_metrics['loss'].append(batch_loss)
-            epoch_metrics['accuracy'].append(batch_accuracy)
-            epoch_metrics['TWA'].append(batch_twa_accuracy)
-        
+            epoch_metrics['acc'].append(batch_accuracy)
+
         except ValueError:
             # Ignore errors in metrics calculation (e.g., empty batch)
             pass
         
-        if self.verbose > 0:
+        if self.verbose > 1:
             # Print aggregated metrics if verbosity is set
             print(
                 f"loss: {metrics['loss']:.4f} - "
-                f"accuracy: {metrics['accuracy']:.4f} - "
-                f"TWA: {metrics['TWA']:.4f}"
+                f"accuracy: {metrics['acc']:.4f}"
             )
         
         return step_metrics, epoch_metrics
@@ -1764,53 +1829,70 @@ class HammersteinWienerClassifier(BaseHammersteinWiener, ClassifierMixin):
         np.ndarray
             Predicted class probabilities, shape (n_samples, n_classes).
         """
-        if self.verbose > 0:
+        if self.verbose > 1:
             print("Starting predict_proba method.")
-        
+
         # Ensure the model has been fitted
         check_is_fitted(self, 'linear_model_')
-        
+
         # Validate and preprocess input data
-        X = check_array(X)
+        X = check_array(X).astype(np.float32)
+        # n_samples = X.shape[0]
+        batch_size = get_batch_size(X, default_size=self.DEFAULT_BATCH_SIZE, 
+                                    silence=True) 
         
-        # Apply nonlinear input transformation
-        X_transformed = self._apply_nonlinear_input(X)
+        total = X.shape [0]//batch_size 
+        y_pred_proba_batches = []
+
+        with ProgressBar(total = total + 1) as progress_bar:
+            for batch_idx, (X_batch, ) in enumerate(batch_generator(
+                    X, batch_size=batch_size)):
+                # Apply nonlinear input transformation
+                X_transformed_batch = self._apply_nonlinear_input(X_batch)
+    
+                # Create lagged features for the linear dynamic block
+                X_lagged_batch = self._create_lagged_features(X_transformed_batch)
+    
+                # Get the decision function output from the linear model
+                y_linear_batch = self._apply_linear_dynamic_block(X_lagged_batch)
+    
+                # Apply nonlinear output transformation to obtain transformed output
+                y_transformed_batch = self._apply_nonlinear_output(y_linear_batch)
+    
+                # Convert transformed output to probabilities based on the problem type
+                if self.is_multilabel_:
+                    # For multilabel classification, apply sigmoid activation
+                    y_pred_proba_batch = activator(
+                        y_transformed_batch, activation="sigmoid"
+                    )
+                else:
+                    if len(self.linear_model_.classes_) == 2:
+                        # For binary classification, apply sigmoid activation
+                        y_pred_proba_batch = activator(
+                            y_transformed_batch, activation="sigmoid"
+                        )
+                        # Ensure the output has two columns
+                        # representing class probabilities
+                        y_pred_proba_batch = np.hstack([
+                            1 - y_pred_proba_batch, y_pred_proba_batch
+                        ])
+                    else:
+                        # For multiclass classification, apply softmax activation
+                        y_pred_proba_batch = activator(
+                            y_transformed_batch, activation="softmax"
+                        )
+    
+                y_pred_proba_batches.append(y_pred_proba_batch)
+                
+                progress_bar.update (iteration=batch_idx +1)
         
-        # Create lagged features for the linear dynamic block
-        X_lagged = self._create_lagged_features(X_transformed)
-        
-        # Get the decision function output from the linear model
-        y_linear = self._apply_linear_dynamic_block(X_lagged)
-        
-        # Apply nonlinear output transformation to obtain transformed output
-        y_transformed = self._apply_nonlinear_output(y_linear)
-        
-        # Convert transformed output to probabilities based on the problem type
-        if self.is_multilabel_:
-            # For multilabel classification, apply sigmoid activation
-            y_pred_proba = activator(
-                y_transformed, activation="sigmoid"
-            )
-        else:
-            if len(self.linear_model_.classes_) == 2:
-                # For binary classification, apply sigmoid activation
-                y_pred_proba = activator(
-                    y_transformed, activation="sigmoid"
-                )
-                # Ensure the output has two columns representing class probabilities
-                y_pred_proba = np.hstack([
-                    1 - y_pred_proba, y_pred_proba
-                ])
-            else:
-                # For multiclass classification, apply softmax activation
-                y_pred_proba = activator(
-                    y_transformed, activation="softmax"
-                )
-        
-        if self.verbose > 0:
+        y_pred_proba = np.concatenate(y_pred_proba_batches, axis=0)
+
+        if self.verbose > 1:
             print("predict_proba method completed.")
-        
+
         return y_pred_proba
+
 
     def predict(
         self,
@@ -1834,12 +1916,12 @@ class HammersteinWienerClassifier(BaseHammersteinWiener, ClassifierMixin):
         np.ndarray
             Predicted class labels, shape (n_samples,).
         """
-        if self.verbose > 0:
-            print("Starting predict method.")
-        
-        # Obtain class probabilities
+        if self.verbose > 1:
+            print("Starting predict method...")
+
+        # Obtain class probabilities using batch processing
         y_pred_proba = self.predict_proba(X)
-        
+
         if self.is_multilabel_:
             # For multilabel classification, apply threshold to probabilities
             y_pred = (y_pred_proba >= 0.5).astype(int)
@@ -1847,10 +1929,10 @@ class HammersteinWienerClassifier(BaseHammersteinWiener, ClassifierMixin):
             # For binary and multiclass classification, select class
             # with highest probability
             y_pred = np.argmax(y_pred_proba, axis=1)
-        
-        if self.verbose > 0:
+
+        if self.verbose > 1:
             print("Predict method completed.")
-        
+
         return y_pred
 
     def _compute_loss(
@@ -1882,28 +1964,186 @@ class HammersteinWienerClassifier(BaseHammersteinWiener, ClassifierMixin):
         ValueError
             If an unsupported loss function is specified.
         """
-        if self.verbose > 0:
-            print(f"Computing loss using {self.loss} loss function.")
-        
-        # Clip probabilities to prevent log of zero
-        y_pred_proba = np.clip(
-            y_pred_proba, self.epsilon, 1 - self.epsilon
-        )
-        
-        # Compute loss based on the specified loss function
-        if self.loss == "cross_entropy":
-            loss = log_loss(y_true, y_pred_proba)
-        elif self.loss == "time_weighted_cross_entropy":
-            # Compute time-based weights
-            weights = self._compute_time_weights(len(y_true))
-            loss = log_loss(
-                y_true, y_pred_proba, sample_weight=weights
-            )
-        else:
-            raise ValueError("Unsupported loss function.")
-        
-        if self.verbose > 0:
-            print(f"Computed loss: {loss}")
-        
-        return loss
 
+        if self.verbose > 1:
+            print(f"Computing loss using {self.loss} loss function.")
+
+        y_true = y_true.astype(np.float32)
+        y_pred_proba = y_pred_proba.astype(np.float32)
+
+        # Compute loss in batches
+        batch_size = get_batch_size(
+            y_true, y_pred_proba, default_size=self.DEFAULT_BATCH_SIZE, 
+            silence=True
+            ) 
+        total_loss = 0.0
+        n_samples = y_true.shape[0]
+
+        for y_true_batch, y_pred_proba_batch in batch_generator(
+                y_true, y_pred_proba, batch_size=batch_size):
+            # Clip probabilities to prevent log of zero
+            y_pred_proba_batch = np.clip(
+                y_pred_proba_batch, self.epsilon, 1 - self.epsilon
+            )
+
+            if self.loss == "cross_entropy":
+                loss_batch = log_loss(
+                    y_true_batch, y_pred_proba_batch, 
+                    # labels=self.classes_, 
+                )
+                total_loss += loss_batch * y_true_batch.shape[0]
+            elif self.loss == "time_weighted_cross_entropy":
+                # Compute time-based weights
+                weights_batch = self._compute_time_weights(
+                    y_true_batch.shape[0]).astype(np.float32)
+                loss_batch = log_loss(
+                    y_true_batch, y_pred_proba_batch, 
+                    sample_weight=weights_batch, 
+                    # labels=self.classes_, 
+                    # eps=self.epsilon
+                )
+                total_loss += loss_batch * y_true_batch.shape[0]
+            else:
+                raise ValueError("Unsupported loss function.")
+
+        loss = total_loss / n_samples
+
+        if self.verbose > 1:
+            print(f"Computed loss: {loss}")
+
+        return loss
+ 
+_deprecated_docstring = """ 
+.. deprecated:: 1.1.3
+    `{old_class}` is deprecated and will be removed in 
+    version 1.2. Use `{new_class}` instead.
+"""
+
+@copy_doc(
+    source=HWRegressor,
+    docstring=_deprecated_docstring.format(
+        old_class="HammersteinWienerRegressor",
+        new_class="HWRegressor"
+    ),
+    replace=False,
+    copy_attrs=None
+)
+@enable_specific_warnings(
+    categories=FutureWarning,
+    messages="HammersteinWienerRegressor is deprecated*"
+)
+class HammersteinWienerRegressor(HWRegressor):
+    def __init__(
+        self, 
+        nonlinear_input_estimator=None,
+        nonlinear_output_estimator=None,
+        p=1,
+        loss="mse",
+        output_scale=None,
+        time_weighting="linear",
+        feature_engineering='auto',
+        delta=1.0,
+        epsilon=1e-8,
+        shuffle=True, 
+        batch_size="auto", 
+        optimizer='adam',
+        learning_rate=0.001,
+        max_iter=100,
+        tol=1e-3,
+        early_stopping=False,
+        validation_fraction=0.1, 
+        n_iter_no_change=5,
+        random_state=None, 
+        n_jobs=None,
+        verbose=1
+        ):
+            warnings.warn(
+                "HammersteinWienerRegressor is deprecated and will be removed "
+                "in version 1.2. Use HWRegressor instead.",
+                FutureWarning,
+                stacklevel=2
+            )
+            super().__init__(
+                nonlinear_input_estimator=nonlinear_input_estimator,
+                nonlinear_output_estimator=nonlinear_output_estimator,
+                p=p,
+                feature_engineering=feature_engineering,
+                n_jobs=n_jobs,
+                verbose=verbose,
+                optimizer=optimizer,
+                learning_rate=learning_rate,
+                batch_size=batch_size,
+                max_iter=max_iter,
+                tol=tol,
+                early_stopping=early_stopping,
+                validation_fraction=validation_fraction,
+                n_iter_no_change=n_iter_no_change,
+                shuffle=shuffle,
+                epsilon=epsilon,
+                time_weighting=time_weighting,
+                random_state=random_state 
+            )
+
+@copy_doc(
+    source=HWClassifier,
+    docstring=_deprecated_docstring.format(
+        old_class="HammersteinWienerClassifier",
+        new_class="HWClassifier"
+    ),
+    replace=False,
+    copy_attrs=None
+)
+@enable_specific_warnings(
+    categories=FutureWarning,
+    messages="HammersteinWienerClassifier is deprecated*"
+)
+class HammersteinWienerClassifier(HWClassifier):
+    def __init__(
+        self, 
+        nonlinear_input_estimator=None,
+        nonlinear_output_estimator=None,
+        p=1,
+        loss="cross_entropy",
+        time_weighting="linear",
+        feature_engineering='auto',
+        epsilon=1e-8,
+        shuffle=True, 
+        batch_size="auto", 
+        optimizer='adam',
+        learning_rate=0.001,
+        max_iter=100,
+        tol=1e-3,
+        early_stopping=False,
+        validation_fraction=0.1, 
+        n_iter_no_change=5,
+        random_state=None,
+        n_jobs=None,
+        verbose=1
+        ):
+            warnings.warn(
+                "HammersteinWienerClassifier is deprecated and will be removed "
+                "in version 1.1.3. Use HWClassifier instead.",
+                FutureWarning,
+                stacklevel=2
+            )
+            
+            super().__init__(
+                nonlinear_input_estimator=nonlinear_input_estimator,
+                nonlinear_output_estimator=nonlinear_output_estimator,
+                p=p,
+                feature_engineering=feature_engineering,
+                n_jobs=n_jobs,
+                verbose=verbose,
+                optimizer=optimizer,
+                learning_rate=learning_rate,
+                batch_size=batch_size,
+                max_iter=max_iter,
+                tol=tol,
+                early_stopping=early_stopping,
+                validation_fraction=validation_fraction,
+                n_iter_no_change=n_iter_no_change,
+                shuffle=shuffle,
+                epsilon=epsilon,
+                time_weighting=time_weighting,
+                random_state=random_state
+            )
