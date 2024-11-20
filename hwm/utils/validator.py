@@ -34,7 +34,6 @@ __all__= [
     'validate_length_range',
 ]
 
-
 def validate_dates(
         start_date, end_date, return_as_date_str=False, date_format="%Y-%m-%d"):
     """

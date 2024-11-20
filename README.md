@@ -1,8 +1,8 @@
 # HWM: Adaptive Hammerstein-Wiener Modeling Toolkit
 
 [![License](https://img.shields.io/badge/license-BSD--3--Clause-blue.svg)](LICENSE)  
-[![PyPI version](https://img.shields.io/pypi/v/hwm.svg)](https://pypi.org/project/hwm/)  
-[![Documentation Status](https://readthedocs.org/projects/hwm/badge/?version=latest)](https://hwm.readthedocs.io/en/latest/)
+[![PyPI version](https://badge.fury.io/py/hwm.svg)](https://badge.fury.io/py/hwm)  
+[![Documentation Status](https://readthedocs.org/projects/hwm/badge/?version=stable)](https://hwm.readthedocs.io/en/stable/)
 
 HWM is a **Python toolkit for adaptive dynamic system modeling**, designed to capture complex nonlinear and linear relationships in data through the Hammerstein-Wiener architecture. With a flexible, modular design, HWM integrates seamlessly with [Scikit-learn](https://scikit-learn.org/), enabling streamlined workflows for regression, classification, and time-series forecasting tasks.
 
@@ -36,7 +36,7 @@ from hwm.estimators import HammersteinWienerClassifier
 from hwm.metrics import prediction_stability_score
 
 # Generate synthetic data
-X, y = make_classification(n_samples=1000, n_features=20)
+X, y = make_classification(n_samples=10000, n_features=20)
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
 
 # Initialize the model
@@ -44,14 +44,16 @@ hw_model = HammersteinWienerClassifier(
     nonlinear_input_estimator=StandardScaler(),
     nonlinear_output_estimator=StandardScaler(),
     p=2,
-    loss="cross_entropy"
+    loss="cross_entropy", 
+    max_iter =10 
 )
 
 # Train and evaluate
 hw_model.fit(X_train, y_train)
 y_pred = hw_model.predict(X_test)
 stability_score = prediction_stability_score(y_pred)
-print(f"Prediction Stability Score: {stability_score:.4f}")
+
+print(f"\nPrediction Stability Score: {stability_score:.4f}")
 ```
 
 For more usage examples, see the [Examples Page](https://hwm.readthedocs.io/en/latest/examples.html).

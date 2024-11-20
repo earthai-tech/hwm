@@ -34,6 +34,227 @@ __all__= [
      'resample_data'
  ]
 
+
+def get_batch_size(
+    *arrays,
+    default_size=None,
+    max_memory_usage_ratio=0.1, 
+    silence=False
+):
+    """
+    Determine an optimal batch size based on available memory.
+
+    This function computes an optimal batch size for processing large arrays
+    in batches, aiming to prevent memory overload by considering the available
+    system memory. If `psutil` is installed, it uses the available memory to
+    calculate the batch size. Otherwise, it warns the user and defaults to a
+    specified `default_size`.
+
+    Parameters
+    ----------
+    *arrays : array-like
+        One or more arrays (e.g., NumPy arrays) for which to compute the batch
+        size. All arrays must have the same number of samples (first dimension).
+
+    default_size : int, optional
+        The default batch size to use if `psutil` is not installed or if you prefer
+        to specify a fixed batch size. If not provided and `psutil` is not installed,
+        the function defaults to 512.
+
+    max_memory_usage_ratio : float, default 0.1
+        The fraction of available system memory to allocate for the batch data.
+        This parameter is only used if `psutil` is installed.
+    silence: bool, False 
+       Mute the warning to user. 
+       
+    Returns
+    -------
+    int
+        The computed batch size, which is at least 1 and at most the number of
+        samples in the arrays.
+
+    Notes
+    -----
+    The batch size is computed using the formula:
+
+    .. math::
+
+        \\text{batch\\_size} = \\min\\left(
+            \\max\\left(
+                1, \\left\\lfloor \\frac{M \\times R}{S} \\right\\rfloor
+            \\right), N
+        \\right)
+
+    where:
+
+    - :math:`M` is the available system memory in bytes, obtained via `psutil`.
+    - :math:`R` is the `max_memory_usage_ratio`.
+    - :math:`S` is the total size in bytes of one sample across all arrays.
+    - :math:`N` is the total number of samples in the arrays.
+
+    If `psutil` is not installed, a default `batch_size` is used, or less if there
+    are fewer samples.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from hwm.utils import get_batch_size
+    >>> X = np.random.rand(1000, 20)
+    >>> y = np.random.rand(1000)
+    >>> batch_size = get_batch_size(X, y)
+    >>> print(batch_size)
+    64
+
+    See Also
+    --------
+    batch_generator : Generator function to create batches.
+
+    References
+    ----------
+    .. [1] Giampaolo Rodola, "psutil - process and system utilities",
+       https://psutil.readthedocs.io/
+
+    """
+    try:
+        import psutil
+        psutil_available = True
+    except ImportError:
+        psutil_available = False
+        if default_size is None:
+            default_size = 512
+        if not silence:
+            warnings.warn(
+                "'psutil' is not installed. Cannot compute optimal batch size "
+                "based on available memory. Using default batch_size="
+                f"{default_size}."
+            )
+
+    arrays = [np.asarray(arr) for arr in arrays]
+    n_samples = arrays[0].shape[0]
+    for arr in arrays:
+        if arr.shape[0] != n_samples:
+            raise ValueError(
+                "All arrays must have the same number of samples "
+                "in the first dimension."
+            )
+
+    if default_size is not None:
+        # Check if default_size is greater than the number of samples
+        if default_size > n_samples:
+            if psutil_available:
+                if not silence: 
+                    warnings.warn(
+                        f"Default batch_size {default_size} is greater than the "
+                        f"number of samples ({n_samples}). Recomputing batch size "
+                        "based on available memory."
+                    )
+            else:
+                if not silence: 
+                    warnings.warn(
+                        f"Default batch_size {default_size} is greater than the "
+                        f"number of samples ({n_samples}). Using batch_size={n_samples}."
+                    )
+                default_size = n_samples
+        return default_size
+
+    if psutil_available:
+        available_memory = psutil.virtual_memory().available
+        # Compute size of one sample across all arrays
+        sample_size = sum(
+            arr[0].nbytes for arr in arrays
+        )
+        max_memory_usage = available_memory * max_memory_usage_ratio
+        batch_size = int(max_memory_usage // sample_size)
+        batch_size = max(1, min(batch_size, n_samples))
+
+        # If batch_size is greater than array length, warn user
+        if batch_size > n_samples:
+            if not silence:
+                warnings.warn(
+                    f"Computed batch_size {batch_size} is greater than the number "
+                    f"of samples ({n_samples}). Using batch_size={n_samples}."
+                )
+            batch_size = n_samples
+
+        return batch_size
+    else:
+        # psutil is not available, default_size must have been set
+        return default_size
+
+def batch_generator(
+        *arrays,
+        batch_size
+    ):
+    """
+    Generate batches of arrays for efficient processing.
+
+    This generator yields batches of the input arrays,
+    allowing for memory-efficient processing of large
+    datasets. All input arrays must have the same first
+    dimension (number of samples).
+
+    Parameters
+    ----------
+    *arrays : array-like
+        One or more arrays (e.g., NumPy arrays) to be
+        divided into batches. All arrays must have the
+        same number of samples (first dimension).
+
+    batch_size : int
+        The size of each batch. Must be a positive integer.
+
+    Yields
+    ------
+    tuple of array-like
+        A tuple containing slices of the input arrays,
+        corresponding to the current batch.
+
+    Notes
+    -----
+    The function iterates over the arrays, yielding slices
+    from `start_idx` to `end_idx`, where:
+
+    .. math::
+
+        \text{start\_idx} = k \times \text{batch\_size}
+
+        \text{end\_idx} = \min\left(
+            (k + 1) \times \text{batch\_size}, N
+        \right)
+
+    with :math:`k` being the batch index and :math:`N`
+    the total number of samples.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from hwm.utils import batch_generator
+    >>> X = np.arange(10)
+    >>> y = np.arange(10) * 2
+    >>> batch_size = 3
+    >>> for X_batch, y_batch in batch_generator(
+    ...         X, y, batch_size=batch_size):
+    ...     print(X_batch, y_batch)
+    [0 1 2] [0 2 4]
+    [3 4 5] [6 8 10]
+    [6 7 8] [12 14 16]
+    [9] [18]
+
+    See Also
+    --------
+    get_batch_size : Function to compute an optimal batch size.
+
+    References
+    ----------
+    .. [1] Python Software Foundation, "Generators",
+       https://docs.python.org/3/howto/functional.html#generators
+
+    """
+    n_samples = arrays[0].shape[0]
+    for start_idx in range(0, n_samples, batch_size):
+        end_idx = min(start_idx + batch_size, n_samples)
+        yield tuple(arr[start_idx:end_idx] for arr in arrays)
+        
 def activator(z, activation='sigmoid', alpha=1.0, clipping_threshold=250):
     """
     Apply the specified activation function to the input array `z`.

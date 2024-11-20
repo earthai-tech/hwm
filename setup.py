@@ -6,26 +6,27 @@ try:
     import hwm
     VERSION = hwm.__version__
 except ImportError:
-    VERSION = '1.0.1'
+    VERSION = '1.1.0'
+
 
 # Package metadata
 DISTNAME = 'hwm'
 DESCRIPTION = 'Adaptive Hammerstein-Wiener Modeling Toolkit'
 with open('README.md', 'r', encoding='utf8') as f:
     LONG_DESCRIPTION = f.read()
-MAINTAINER = "Laurent Kouadio"
+MAINTAINER = "L.Kouadio"
 MAINTAINER_EMAIL = 'etanoyau@gmail.com'
 URL = "https://github.com/earthai-tech/hwm"
 DOWNLOAD_URL = "https://pypi.org/project/hwm/#files"
 LICENSE = "BSD-3-Clause"
 PROJECT_URLS = {
-    "API Documentation": "https://hwm.readthedocs.io/en/latest/api_references.html",
+    "API Documentation": "https://hwm.readthedocs.io/en/stable/api.html",
     "Home page": "https://hwm.readthedocs.io",
     "Bugs tracker": "https://github.com/earthai-tech/hwm/issues",
-    "Installation guide": "https://hwm.readthedocs.io/en/latest/installation.html",
-    "User guide": "https://hwm.readthedocs.io/en/latest/user_guide.html",
+    "Installation guide": "https://hwm.readthedocs.io/en/stable/installation.html",
+    "User guide": "https://hwm.readthedocs.io/en/lateststable/user_guide.html",
 }
-KEYWORDS = "machine learning, dynamic systems, algorithm, time series, Scikit-learn compatible"
+KEYWORDS = "machine learning, dynamic systems, algorithm, time series"
 
 # Dependencies
 INSTALL_REQUIRES = [
