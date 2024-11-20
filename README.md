@@ -36,7 +36,7 @@ from hwm.estimators import HammersteinWienerClassifier
 from hwm.metrics import prediction_stability_score
 
 # Generate synthetic data
-X, y = make_classification(n_samples=1000, n_features=20)
+X, y = make_classification(n_samples=10000, n_features=20)
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
 
 # Initialize the model
@@ -44,7 +44,8 @@ hw_model = HammersteinWienerClassifier(
     nonlinear_input_estimator=StandardScaler(),
     nonlinear_output_estimator=StandardScaler(),
     p=2,
-    loss="cross_entropy"
+    loss="cross_entropy", 
+    max_iter =10 
 )
 
 # Train and evaluate
