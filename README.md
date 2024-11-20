@@ -51,7 +51,8 @@ hw_model = HammersteinWienerClassifier(
 hw_model.fit(X_train, y_train)
 y_pred = hw_model.predict(X_test)
 stability_score = prediction_stability_score(y_pred)
-print(f"Prediction Stability Score: {stability_score:.4f}")
+
+print(f"\nPrediction Stability Score: {stability_score:.4f}")
 ```
 
 For more usage examples, see the [Examples Page](https://hwm.readthedocs.io/en/latest/examples.html).

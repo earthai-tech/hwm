@@ -6,7 +6,7 @@ try:
     import hwm
     VERSION = hwm.__version__
 except ImportError:
-    VERSION = '1.0.1'
+    VERSION = '1.1.0'
 
 # Package metadata
 DISTNAME = 'hwm'

@@ -11,23 +11,6 @@ deprecated features. The module includes resampling utilities, scorer
 functions, and compatibility checks to maintain functionality across different
 sklearn versions.
 
-Attributes
-----------
-.. autoattribute:: SKLEARN_VERSION
-    :members:
-
-.. autoattribute:: SKLEARN_LT_0_22
-    :members:
-
-.. autoattribute:: SKLEARN_LT_0_23
-    :members:
-
-.. autoattribute:: SKLEARN_LT_0_24
-    :members:
-
-.. autoattribute:: SKLEARN_LT_1_3
-    :members:
-
 .. _Interval:
 
 Interval

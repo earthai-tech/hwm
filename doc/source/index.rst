@@ -54,11 +54,11 @@ it well-suited for real-time applications.
 
 Additionally, the package includes custom evaluation metrics:
 
-- **Prediction Stability Score (PSS)**:  
+- **Prediction Stability Score (PSS)**: :func:`hwm.metrics.prediction_stability_score`    
   Measures the consistency of the model’s predictions over time, assessing 
   its robustness in dynamic environments.
   
-- **Time-weighted Accuracy (TWA)**:  
+- **Time-weighted Accuracy (TWA)**: :func:`hwm.metrics.twa_score` 
   Evaluates the model's accuracy while taking into account the timing of 
   predictions, ensuring that the model performs well in time-sensitive tasks.
 
@@ -80,11 +80,12 @@ Exploration
    examples
    package_architecture
    development
+   release_notes
 
 Navigation
 -------------
 
-The `hwm` package is divided into several subpackages, each serving a specific 
+The :code:`hwm` package is divided into several subpackages, each serving a specific 
 function to ensure the model’s proper operation in various machine learning 
 workflows:
 
@@ -96,7 +97,7 @@ workflows:
   installation issues.
 
 - **examples**:  
-  The `examples` subpackage includes a collection of scripts designed to 
+  The :ref:`examples <examples>` subpackage includes a collection of scripts designed to 
   demonstrate the HW model’s application across multiple domains. :ref:`Examples <examples>`
   cover tasks such as network intrusion detection, time series forecasting, 
   and industrial system monitoring, showcasing how the HW model can be used 
@@ -112,8 +113,8 @@ workflows:
 - **estimators**:  
   The :mod:`hwm.estimators` subpackage contains the core model classes that implement 
   the HW model’s nonlinear and dynamic processing blocks. The files 
-  `_dynamic_system.py` and `dynamic_system.py` define the internal structure 
-  of the model, including the nonlinear input transformation, linear dynamic 
+  `dynamic_system.py` define the internal structure of the model, 
+  including the nonlinear input transformation, linear dynamic 
   system, and nonlinear output transformation. These estimators can be customized 
   for specific applications, such as classification or regression tasks, and 
   are the heart of the model’s predictive capabilities.
@@ -123,9 +124,9 @@ workflows:
   functions that support the overall functionality of the `hwm` package. Key 
   modules include:
   
-  - **:mod:`hwm.utils.context.py**: Manages the context in which the model is run, helping 
+  - :mod:`hwm.utils.context` : Manages the context in which the model is run, helping 
     to organize and track the model’s state during training and evaluation.
-  - **:mod:`hwm.utils.validator.py**: Validates input data, ensuring that the data used 
+  - :mod:`hwm.utils.validator` : Validates input data, ensuring that the data used 
     for training or testing the model is correctly formatted and meets the 
     necessary requirements.
   - Other utility functions support tasks like logging, error handling, 

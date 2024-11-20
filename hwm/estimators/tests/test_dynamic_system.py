@@ -9,6 +9,8 @@ from sklearn.datasets import make_regression, make_classification
 from sklearn.neural_network import MLPRegressor, MLPClassifier
 from sklearn.preprocessing import FunctionTransformer
 from sklearn.metrics import mean_squared_error, accuracy_score
+from sklearn.preprocessing import MinMaxScaler, StandardScaler 
+
 #%%
 def test_hammerstein_wiener_regressor_with_nonlinear_estimators():
     X, y = make_regression(n_samples=200, n_features=5, noise=0.1, random_state=42)
@@ -56,6 +58,7 @@ def test_hammerstein_wiener_regressor_basic():
     X, y = make_regression(n_samples=200, n_features=5, noise=0.1, random_state=42)
     y += 0.5 * np.sin(X[:, 0])
     regressor = HammersteinWienerRegressor(p=2, verbose=1, output_scale=None)
+    X= StandardScaler().fit_transform (X)
     regressor.fit(X, y)
     y_pred = regressor.predict(X)
     mse = mean_squared_error(y, y_pred)

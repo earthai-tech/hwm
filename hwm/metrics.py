@@ -387,13 +387,13 @@ def time_weighted_score(
             score = numerator / denominator
             return score
 
-
 def twa_score(
     y_true,
     y_pred,
     *,
     alpha=0.9,
-    sample_weight=None
+    sample_weight=None,
+    threshold=0.5
     ):
     """
     Compute the Time-Weighted Accuracy (TWA) for classification tasks.
@@ -406,7 +406,8 @@ def twa_score(
     The TWA is defined as:
 
     .. math::
-        \\text{TWA} = \\frac{\\sum_{t=1}^T w_t \\cdot \\mathbb{1}(y_t = \\hat{y}_t)}{\\sum_{t=1}^T w_t}
+        \\text{TWA} = \\frac{\\sum_{t=1}^T w_t \\cdot\\
+                             \\mathbb{1}(y_t = \\hat{y}_t)}{\\sum_{t=1}^T w_t}
 
     where:
 
@@ -424,7 +425,9 @@ def twa_score(
         True labels or binary label indicators.
 
     y_pred : array-like of shape (n_samples,) or (n_samples, n_outputs)
-        Predicted labels, as returned by a classifier.
+        Predicted labels or probabilities, as returned by a classifier.
+        If probabilities are provided, they will be converted to labels
+        using the specified threshold.
 
     alpha : float, default=0.9
         Decay factor for time weighting. Must be in the range (0, 1).
@@ -433,6 +436,13 @@ def twa_score(
     sample_weight : array-like of shape (n_samples,), default=None
         Sample weights. If provided, combines with time weights to
         compute a weighted accuracy.
+
+    threshold : float, default=0.5
+        Threshold value for converting probabilities to binary labels
+        in binary or multilabel classification.
+        
+        .. version:: 1.1.0 
+        
 
     Returns
     -------
@@ -444,8 +454,8 @@ def twa_score(
     >>> from hwm.metrics import twa_score
     >>> import numpy as np
     >>> y_true = np.array([1, 0, 1, 1, 0])
-    >>> y_pred = np.array([1, 1, 1, 0, 0])
-    >>> twa_score(y_true, y_pred, alpha=0.8)
+    >>> y_pred_proba = np.array([0.9, 0.8, 0.6, 0.4, 0.2])
+    >>> twa_score(y_true, y_pred_proba, alpha=0.8, threshold=0.5)
     0.7936507936507937
 
     Notes
@@ -453,6 +463,9 @@ def twa_score(
     The TWA is sensitive to the value of :math:`\\alpha`. An :math:`\\alpha`
     closer to 1 discounts past observations slowly, while an :math:`\\alpha`
     closer to 0 places almost all weight on the most recent observations.
+
+    If probabilities are passed as `y_pred`, they will be converted to
+    labels using the specified `threshold`.
 
     See Also
     --------
@@ -463,68 +476,128 @@ def twa_score(
     .. [1] Schoukens, J., & Ljung, L. (2019). Nonlinear System Identification:
            A User-Oriented Roadmap. IEEE Control Systems Magazine, 39(6), 28-99.
     """
+
+    def proba_to_labels_binary(y_pred_proba, threshold=0.5):
+        return (y_pred_proba >= threshold).astype(int)
+    
+    def proba_to_labels_multiclass(y_pred_proba):
+        return np.argmax(y_pred_proba, axis=1)
+    
+    def proba_to_labels_multilabel(y_pred_proba, threshold=0.5):
+        return (y_pred_proba >= threshold).astype(int)
+    
     # Validate input arrays
     y_true = check_array(y_true, ensure_2d=False, dtype=None)
     y_pred = check_array(y_pred, ensure_2d=False, dtype=None)
     check_consistent_length(y_true, y_pred)
-
-    # Determine the type of target (e.g., binary, multiclass, multilabel)
+    
+    # Determine the type of target
     y_type = type_of_target(y_true)
-
+    
     # Validate sample_weight
     if sample_weight is not None:
         sample_weight = np.asarray(sample_weight)
         if sample_weight.ndim > 1:
             sample_weight = sample_weight.squeeze()
         if len(sample_weight) != len(y_true):
-            raise ValueError(
-                "sample_weight must have the same length as y_true"
-            )
-
+            raise ValueError("sample_weight must have the same length as y_true")
+    
     # Compute time weights: w_t = alpha^(T - t)
     T = len(y_true)
     t = np.arange(T)
     weights = alpha ** (T - t - 1)
-
+    
     # Combine time weights with sample weights if provided
     if sample_weight is not None:
         weights = weights * sample_weight
-
-    valid_types={
-            'binary', 'multiclass', 'multilabel-indicator',
-            'multiclass-multioutput'}
     
-    if y_type not in valid_types: 
+    valid_types = {
+        'binary', 'multiclass', 'multilabel-indicator',
+        'multiclass-multioutput'
+    }
+    
+    if y_type not in valid_types:
         raise ValueError(
-            f"Target `y` must be one of the valid types: {valid_types}")
+            f"Target `y_true` must be one of the valid types: {valid_types}"
+        )
     
     # Handle different types of classification targets
-    if y_type in ('binary', 'multiclass'):
-        # Compute correct predictions (1 if correct, 0 if incorrect)
+    if y_type == 'binary':
+        if y_pred.ndim == 2 and y_pred.shape[1] == 2:
+            # y_pred is 2D probabilities for binary classification
+            y_pred = proba_to_labels_multiclass(y_pred)
+        elif y_pred.ndim == 1:
+            if y_pred.dtype.kind in 'fi':
+                unique_values = np.unique(y_pred)
+                if set(unique_values).issubset({0, 1}):
+                    # y_pred is labels
+                    pass
+                elif np.all((y_pred >= 0) & (y_pred <= 1)):
+                    # y_pred is 1D probabilities for class 1
+                    y_pred = proba_to_labels_binary(y_pred, threshold)
+                else:
+                    raise ValueError(
+                        "Invalid y_pred values for binary classification."
+                    )
+            else:
+                raise ValueError(
+                    "Invalid y_pred data type for binary classification."
+                )
+        else:
+            raise ValueError(
+                "Invalid y_pred shape for binary classification."
+            )
+        
+        # Compute correct predictions
         correct = (y_true == y_pred).astype(int)
-        # Compute weighted sum of correct predictions
         numerator = np.sum(weights * correct)
-        # Sum of weights
         denominator = np.sum(weights)
-        # Calculate time-weighted accuracy
         score = numerator / denominator
         return score
+    
+    elif y_type == 'multiclass':
+        if y_pred.ndim == 2:
+            # y_pred is 2D probabilities for multiclass
+            y_pred = proba_to_labels_multiclass(y_pred)
+        elif y_pred.ndim == 1:
+            # y_pred is labels
+            pass
+        else:
+            raise ValueError(
+                "Invalid y_pred shape for multiclass classification."
+            )
+        
+        # Compute correct predictions
+        correct = (y_true == y_pred).astype(int)
+        numerator = np.sum(weights * correct)
+        denominator = np.sum(weights)
+        score = numerator / denominator
+        return score
+    
     elif y_type in ('multilabel-indicator', 'multiclass-multioutput'):
-        # Ensure y_true and y_pred are 2D arrays
         if y_true.ndim == 1:
             y_true = y_true.reshape(-1, 1)
         if y_pred.ndim == 1:
             y_pred = y_pred.reshape(-1, 1)
+        
+        if y_pred.ndim == 2:
+            unique_values = np.unique(y_pred)
+            if set(unique_values).issubset({0, 1}):
+                # y_pred is labels
+                pass
+            elif np.all((y_pred >= 0) & (y_pred <= 1)):
+                # y_pred is probabilities
+                y_pred = proba_to_labels_multilabel(y_pred, threshold)
+            else:
+                raise ValueError("Invalid y_pred values for multilabel classification.")
+        else:
+            raise ValueError("Invalid y_pred shape for multilabel classification.")
+        
         # Compute correct predictions per label
         correct = (y_true == y_pred).astype(int)
-        # Multiply weights with correct predictions
         weighted_correct = weights[:, np.newaxis] * correct
-        # Sum over samples for each label
         numerator = np.sum(weighted_correct, axis=0)
-        # Sum of weights
         denominator = np.sum(weights)
-        # Calculate accuracy per label
         score_per_label = numerator / denominator
-        # Average over labels to get overall score
         score = np.mean(score_per_label)
         return score

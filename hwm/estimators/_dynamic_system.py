@@ -13,10 +13,8 @@ from sklearn.base import BaseEstimator
 from sklearn.model_selection import train_test_split
 from sklearn.utils._param_validation import HasMethods, StrOptions
 
-
 from ..api.property import LearnerMeta 
 from ..utils.validator import check_is_fitted
-
 
 class BaseHammersteinWiener(BaseEstimator, metaclass=LearnerMeta):
     """
@@ -87,7 +85,7 @@ class BaseHammersteinWiener(BaseEstimator, metaclass=LearnerMeta):
         the batch size is determined automatically based on the dataset
         size.
     
-    max_iter : int, default=1000
+    max_iter : int, default=100
         Maximum number of iterations (epochs) for training the linear
         dynamic block.
     
@@ -240,6 +238,8 @@ class BaseHammersteinWiener(BaseEstimator, metaclass=LearnerMeta):
         "verbose": [Integral],
     }
     
+    DEFAULT_BATCH_SIZE=512 
+    
     @abstractmethod 
     def __init__(
         self,
@@ -250,7 +250,7 @@ class BaseHammersteinWiener(BaseEstimator, metaclass=LearnerMeta):
         optimizer='adam',
         learning_rate=0.001,
         batch_size='auto',
-        max_iter=1000,
+        max_iter=100,
         tol=1e-3,
         early_stopping=False,
         validation_fraction=0.1,
@@ -260,7 +260,7 @@ class BaseHammersteinWiener(BaseEstimator, metaclass=LearnerMeta):
         time_weighting=None,
         random_state=None, 
         n_jobs=None,
-        verbose=0,
+        verbose=1,
     ):
 
         self.nonlinear_input_estimator = nonlinear_input_estimator
@@ -399,39 +399,35 @@ class BaseHammersteinWiener(BaseEstimator, metaclass=LearnerMeta):
         np.ndarray
             The transformed input features.
         """
-        if self.verbose > 0:
+
+        if self.verbose > 1:
             print("Applying nonlinear input transformation.")
     
         if self.nonlinear_input_estimator is not None:
-            # Check if the estimator is fitted
             try:
                 check_is_fitted(self.nonlinear_input_estimator)
             except:
-                if self.verbose > 0:
+                if self.verbose > 1:
                     print("Fitting nonlinear input estimator.")
                 self.nonlinear_input_estimator.fit(
                     X, y) if y is not None else self.nonlinear_input_estimator.fit(X)
             
-            # Use transform or predict based on estimator type
             if hasattr(self.nonlinear_input_estimator, 'transform'):
                 X_transformed = self.nonlinear_input_estimator.transform(X)
             elif hasattr(self.nonlinear_input_estimator, 'predict'):
                 X_transformed = self.nonlinear_input_estimator.predict(X)
-                # Ensure the output is 2D
                 if X_transformed.ndim == 1:
                     X_transformed = X_transformed.reshape(-1, 1)
             else:
                 raise ValueError(
-                    "The nonlinear_input_estimator must have either a 'transform' "
-                    "or 'predict' method."
-                )
+                    "The nonlinear_input_estimator must have either a"
+                    " 'transform' or 'predict' method.")
         else:
-            # No nonlinear input estimator provided; use original X
             X_transformed = X
-            if self.verbose > 0:
+            if self.verbose > 1:
                 print("No nonlinear input estimator provided; using original X.")
         
-        return X_transformed
+        return X_transformed.astype(np.float32)
 
     def _create_lagged_features(
         self,
@@ -456,28 +452,24 @@ class BaseHammersteinWiener(BaseEstimator, metaclass=LearnerMeta):
             An array of lagged features with shape
             (n_samples, n_features * p), where p is the number of lags.
         """
-        if self.verbose > 0:
+
+        if self.verbose > 1:
             print("Creating lagged features.")
     
         n_samples, n_features = X_transformed.shape
-        lagged_features = []
+        lagged_features = np.zeros((n_samples, n_features * self.p), dtype=np.float32)
     
         for lag in range(self.p):
-            if self.verbose > 0:
+            if self.verbose > 1:
                 print(f"Creating lag {lag + 1} features.")
-            # Shift the data to create lagged features
             lagged = np.roll(X_transformed, shift=lag, axis=0)
-            # Zero padding for initial rows to avoid undefined values
             lagged[:lag, :] = 0
-            lagged_features.append(lagged)
+            lagged_features[:, lag * n_features:(lag + 1) * n_features] = lagged
     
-        # Concatenate all lagged features into a single array
-        X_lagged = np.hstack(lagged_features)
+        if self.verbose > 1:
+            print(f"Lagged features shape: {lagged_features.shape}")
     
-        if self.verbose > 0:
-            print(f"Lagged features shape: {X_lagged.shape}")
-    
-        return X_lagged
+        return lagged_features
 
 
     def _apply_linear_dynamic_block(
@@ -500,11 +492,11 @@ class BaseHammersteinWiener(BaseEstimator, metaclass=LearnerMeta):
         np.ndarray
             The decision function values computed by the linear model.
         """
-        if self.verbose > 0:
+        if self.verbose > 1:
             print("Applying linear dynamic block.")
     
         return self.linear_model_.decision_function(X_lagged)
-
+    
     def _apply_nonlinear_output(
         self,
         y_linear: np.ndarray,
@@ -529,7 +521,8 @@ class BaseHammersteinWiener(BaseEstimator, metaclass=LearnerMeta):
         np.ndarray
             The transformed output values.
         """
-        if self.verbose > 0:
+
+        if self.verbose > 1:
             print("Applying nonlinear output transformation.")
     
         if self.nonlinear_output_estimator is not None:
@@ -537,45 +530,42 @@ class BaseHammersteinWiener(BaseEstimator, metaclass=LearnerMeta):
             try:
                 check_is_fitted(self.nonlinear_output_estimator)
             except:
-                if self.verbose > 0:
+                if self.verbose > 1:
                     print("Fitting nonlinear output estimator.")
                 if y is not None:
                     self.nonlinear_output_estimator.fit(
                         y_linear.reshape(-1, 1), y
-                    )
+                        )
                 else:
                     self.nonlinear_output_estimator.fit(
                         y_linear.reshape(-1, 1), y_linear
-                    )
+                        )
     
             # Use transform or predict based on estimator type
             if hasattr(self.nonlinear_output_estimator, 'transform'):
                 y_pred = self.nonlinear_output_estimator.transform(
                     y_linear.reshape(-1, 1)
-                )
+                    )
             elif hasattr(self.nonlinear_output_estimator, 'predict'):
                 y_pred = self.nonlinear_output_estimator.predict(
                     y_linear.reshape(-1, 1)
-                )
+                    )
             else:
-                raise ValueError(
-                    "The nonlinear_output_estimator must have either a 'transform' "
-                    "or 'predict' method."
-                )
+                raise ValueError("The nonlinear_output_estimator must have"
+                                 " either a 'transform' or 'predict' method.")
             
             # Ensure the output is 2D
             if y_pred.ndim == 1:
                 y_pred = y_pred.reshape(-1, 1)
         else:
             # No nonlinear output estimator provided; use linear output
-            y_pred = y_linear
-            if y_pred.ndim == 1:
-                y_pred = y_pred.reshape(-1, 1)
-            if self.verbose > 0:
-                print("No nonlinear output estimator provided; using linear output.")
+            y_pred = y_linear.reshape(-1, 1)
+            if self.verbose > 1:
+                print(
+                    "No nonlinear output estimator provided; using linear output.")
         
-        return y_pred
-
+        return y_pred.astype(np.float32)
+    
     def _split_data(
         self,
         X: np.ndarray,
@@ -645,7 +635,7 @@ class BaseHammersteinWiener(BaseEstimator, metaclass=LearnerMeta):
         np.ndarray
             An array of computed weights with shape (n_samples,).
         """
-        if self.verbose > 0:
+        if self.verbose > 1:
             # Log the selected time weighting method
             print(
                 f"Computing time weights using "
@@ -668,12 +658,11 @@ class BaseHammersteinWiener(BaseEstimator, metaclass=LearnerMeta):
             # Default weighting: equal weights for all samples
             weights = np.ones(n_samples)
         
-        if self.verbose > 0:
+        if self.verbose > 1:
             # Log the computed weights
             print(f"Time weights: {weights}")
         
         return weights
-
 
     def _handle_early_stopping(
         self,
@@ -703,7 +692,7 @@ class BaseHammersteinWiener(BaseEstimator, metaclass=LearnerMeta):
             self._no_improvement_count = 0
             # Update the best observed validation loss
             self.best_loss_ = val_loss
-            if self.verbose > 0:
+            if self.verbose > 1:
                 print(
                     f"Validation loss improved to {self.best_loss_:.6f}. "
                     "Resetting no improvement counter."
@@ -711,7 +700,7 @@ class BaseHammersteinWiener(BaseEstimator, metaclass=LearnerMeta):
         else:
             # No significant improvement: increment counter
             self._no_improvement_count += 1
-            if self.verbose > 0:
+            if self.verbose > 1:
                 print(
                     f"No improvement in validation loss for "
                     f"{self._no_improvement_count} consecutive epochs."
@@ -719,7 +708,7 @@ class BaseHammersteinWiener(BaseEstimator, metaclass=LearnerMeta):
             
             # Check if early stopping criterion is met
             if self._no_improvement_count >= self.n_iter_no_change:
-                if self.verbose > 0:
+                if self.verbose > 1:
                     print(
                         f"Early stopping triggered after "
                         f"{self._no_improvement_count} epochs without "
@@ -783,7 +772,7 @@ class BaseHammersteinWiener(BaseEstimator, metaclass=LearnerMeta):
             # Initialize step_metrics to collect metrics across the batch
             step_metrics: dict[str, float] = {}
         
-            if self.verbose > 0:
+            if self.verbose > 1:
                 # Print batch details if verbosity level is high
                 msg =f"Batch {batch_idx + 1}/{len(X_y_batches)}:"
                 print(msg)
@@ -806,7 +795,7 @@ class BaseHammersteinWiener(BaseEstimator, metaclass=LearnerMeta):
                 # Perform partial_fit on subsequent batches
                 self.linear_model_.partial_fit(X_batch, y_batch)
             
-            if batch_idx < len(X_y_batches):
+            if batch_idx == len(X_y_batches) -1:
                 # Evaluate the current batch and update metrics
                 step_metrics, epoch_metrics = self._evaluate_batch(
                     X_batch=X_batch,
@@ -824,7 +813,8 @@ class BaseHammersteinWiener(BaseEstimator, metaclass=LearnerMeta):
                 bar.update(
                     step=batch_idx + 1,
                     epoch=epoch,
-                    step_metrics=step_metrics
+                    step_metrics=step_metrics, 
+                    is_epoch_over= (batch_idx + 1) ==len(X_y_batches)
                 )
             
             # Reinitialize step_metrics for the next batch
@@ -872,9 +862,9 @@ class BaseHammersteinWiener(BaseEstimator, metaclass=LearnerMeta):
         # collected during the epoch
         for metric_name, metric_values in epoch_metrics.items():
             # Determine if the metric should be minimized
-            # (e.g., 'loss', 'PSS') or maximized
+            # (e.g., 'loss', 'pss') or maximized
             is_minimization_metric = any(
-                keyword in metric_name.lower() for keyword in ["loss", "PSS"]
+                keyword in metric_name.lower() for keyword in ["loss", "pss"]
             )
     
             if is_minimization_metric:
@@ -882,7 +872,7 @@ class BaseHammersteinWiener(BaseEstimator, metaclass=LearnerMeta):
                 epoch_best = min(metric_values)
                 if epoch == 0:
                     # Initialize best_metrics with the first epoch's best
-                    best_metrics[metric_name] = epoch_best
+                    best_metrics[metric_name] = round(epoch_best, 4)
                 else:
                     # Update best_metrics if the current epoch's best is better
                     best_metrics[metric_name] = min(
@@ -901,6 +891,5 @@ class BaseHammersteinWiener(BaseEstimator, metaclass=LearnerMeta):
                         best_metrics[metric_name],
                         epoch_best
                     )
-    
         # Clear the epoch_metrics dictionary to prepare for the next epoch
         epoch_metrics.clear()
