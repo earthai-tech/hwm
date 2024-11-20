@@ -38,7 +38,7 @@ def _lazy_import(module_name, alias=None):
 try:
     from ._version import version as __version__
 except ImportError:
-    __version__ = "1.1.0"
+    __version__ = "1.1.4"
 
 # Dependency management
 _required_dependencies = [
@@ -66,6 +66,7 @@ if _missing_dependencies:
 
 # Suppression of non-critical warnings, adjustable by the user
 _warnings_state = {"FutureWarning": "ignore"}
+
 def suppress_warnings(suppress=True):
     """Enable or disable future/syntax warnings."""
     for warning, action in _warnings_state.items():

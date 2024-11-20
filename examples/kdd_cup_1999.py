@@ -52,7 +52,7 @@ from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.keras.layers import Dense, LSTM
 from tensorflow.keras.models import Sequential
 
-from hwm.estimators import HammersteinWienerClassifier
+from hwm.estimators import HWClassifier
 from hwm.metrics import prediction_stability_score, twa_score
 from hwm.utils import resample_data
 
@@ -145,7 +145,7 @@ class ReLUTransformer(BaseEstimator, TransformerMixin):
 
 # %%
 # Initialize the Hammerstein-Wiener Classifier
-hw_model = HammersteinWienerClassifier(
+hw_model = HWClassifier(
     nonlinear_input_estimator=ReLUTransformer(),
     nonlinear_output_estimator=ReLUTransformer(),
     p=9,
@@ -176,7 +176,7 @@ param_distributions = {
 }
 
 # Initialize the Hammerstein-Wiener Classifier with fixed components
-fixed_hw_model = HammersteinWienerClassifier(
+fixed_hw_model = HWClassifier(
     nonlinear_input_estimator=ReLUTransformer(),
     nonlinear_output_estimator=ReLUTransformer(),
     loss="cross_entropy",

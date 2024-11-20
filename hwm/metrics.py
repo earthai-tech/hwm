@@ -2,15 +2,27 @@
 #   License: BSD-3-Clause
 #   Author: LKouadio <etanoyau@gmail.com>
 
+from numbers import Real 
+import numpy as np 
+
 from sklearn.metrics._regression import _check_reg_targets
 from sklearn.utils.validation import check_array, check_consistent_length
 from sklearn.utils.multiclass import type_of_target 
-import numpy as np 
 
+from .compat.sklearn import validate_params, StrOptions, Interval
 from .utils.validator import _ensure_y_is_valid
 
 __all__=['prediction_stability_score', 'time_weighted_score', 'twa_score']
 
+@validate_params({ 
+    "y_pred": ['array-like'], 
+    "y_true": ['array-like', None], 
+    "sample_weight":['array-like', None], 
+    "multioutput": [
+        StrOptions({"uniform_average","raw_values"})
+        ]
+    }
+  )
 def prediction_stability_score(
     y_pred,
     y_true=None,      
@@ -19,7 +31,7 @@ def prediction_stability_score(
     ):
     """
     Calculate the Prediction Stability Score (PSS), which assesses the temporal
-    stability of predictions across consecutive time steps.
+    stability of predictions across consecutive time steps [1]_.
 
     The Prediction Stability Score is defined as:
 
@@ -31,6 +43,8 @@ def prediction_stability_score(
 
     - :math:`T` is the number of time steps.
     - :math:`\\hat{y}_t` is the prediction at time :math:`t`.
+    
+    See more in :ref:`user guide <user_guide>`.
 
     Parameters
     ----------
@@ -144,6 +158,15 @@ def prediction_stability_score(
     else:
         raise ValueError("Invalid value for multioutput parameter.")
 
+@validate_params({ 
+    "y_pred": ['array-like'], 
+    "y_true": ['array-like'], 
+    "alpha": [Interval(Real, 0, 1, closed="both")], 
+    "sample_weight":['array-like', None], 
+    "multioutput": [StrOptions({"uniform_average","raw_values"})], 
+    "squared":[bool]
+    }
+ )
 def time_weighted_score(
     y_true,
     y_pred,
@@ -160,7 +183,7 @@ def time_weighted_score(
     squared error (MSE) or mean absolute error (MAE) between the true and
     predicted values. For **classification tasks**, it computes the time-weighted
     Time-Weighted Accuracy (TWA). It assigns exponentially decreasing weights
-    over time, emphasizing recent observations more than earlier ones.
+    over time, emphasizing recent observations more than earlier ones [1]_.
 
     The time-weighted metric is defined differently for regression and
     classification:
@@ -188,6 +211,9 @@ def time_weighted_score(
     - :math:`\\mathbb{1}(\\cdot)` is the indicator function that equals 1 if
       its argument is true and 0 otherwise.
 
+    
+    See more in :ref:`user guide <user_guide>`. 
+    
     Parameters
     ----------
     y_true : array-like of shape (n_samples,) or (n_samples, n_outputs)
@@ -387,6 +413,15 @@ def time_weighted_score(
             score = numerator / denominator
             return score
 
+
+@validate_params({ 
+    "y_pred": ['array-like'], 
+    "y_true": ['array-like'], 
+    "alpha": [Interval(Real, 0, 1, closed="both")], 
+    "sample_weight":['array-like', None], 
+    "threshold":[Interval(Real, 0, 1, closed="neither")]
+    }
+ )
 def twa_score(
     y_true,
     y_pred,
@@ -401,7 +436,7 @@ def twa_score(
     The Time-Weighted Accuracy assigns exponentially decreasing weights
     to predictions over time, emphasizing recent predictions more than
     earlier ones. This is particularly useful in dynamic systems where
-    the importance of correct predictions may change over time.
+    the importance of correct predictions may change over time [1]_.
 
     The TWA is defined as:
 
@@ -419,6 +454,8 @@ def twa_score(
     - :math:`y_t` is the true label at time :math:`t`.
     - :math:`\\hat{y}_t` is the predicted label at time :math:`t`.
 
+    See more in :ref:`user guide <user_guide`. 
+    
     Parameters
     ----------
     y_true : array-like of shape (n_samples,) or (n_samples, n_outputs)
@@ -487,9 +524,10 @@ def twa_score(
         return (y_pred_proba >= threshold).astype(int)
     
     # Validate input arrays
-    y_true = check_array(y_true, ensure_2d=False, dtype=None)
-    y_pred = check_array(y_pred, ensure_2d=False, dtype=None)
+    y_true = check_array(y_true, ensure_2d=False,)
+    y_pred = check_array(y_pred, ensure_2d=False,)
     check_consistent_length(y_true, y_pred)
+    
     
     # Determine the type of target
     y_type = type_of_target(y_true)

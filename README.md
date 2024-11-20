@@ -32,7 +32,7 @@ import numpy as np
 from sklearn.datasets import make_classification
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
-from hwm.estimators import HammersteinWienerClassifier
+from hwm.estimators import HWClassifier
 from hwm.metrics import prediction_stability_score
 
 # Generate synthetic data
@@ -40,7 +40,7 @@ X, y = make_classification(n_samples=10000, n_features=20)
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
 
 # Initialize the model
-hw_model = HammersteinWienerClassifier(
+hw_model = HWClassifier(
     nonlinear_input_estimator=StandardScaler(),
     nonlinear_output_estimator=StandardScaler(),
     p=2,

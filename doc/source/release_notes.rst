@@ -1,10 +1,10 @@
 .. _release_notes:
     
 Release Notes
-=============
+===============
 
-hwm v1.1.0
-----------
+hwm v1.1.4
+------------
 
 **Released on 2024-04-27**
 
@@ -51,14 +51,14 @@ hwm v1.1.0
   .. code-block:: python
 
       import numpy as np
-      from hwm.estimators import HammersteinWienerRegressor
+      from hwm.estimators import HWRegressor
 
       # Generate large synthetic dataset
       X = np.random.rand(1000000, 10)
       y = np.random.rand(1000000)
 
       # Initialize and fit the regressor with batch computation
-      model = HammersteinWienerRegressor(batch_size=10000)
+      model = HWRegressor(batch_size=10000)
       model.fit(X, y)
 
       # Make predictions
@@ -66,11 +66,62 @@ hwm v1.1.0
       print(predictions[:5])
       # Output: [0.523, 0.489, 0.501, 0.478, 0.495]
 
+
+
+**Enhancements**
+
+- *Renamed Classes for Improved Usability*
+
+  The class names :class:`hwm.estimators.HammersteinWienerRegressor` and 
+  :class:`hwm.estimators.HammersteinWienerClassifier` have been renamed to 
+  :class:`hwm.estimators.HWRegressor` and :class:`hwm.estimators.HWClassifier` 
+  respectively for brevity and ease of use.
+
+  **Deprecation Notice:**
+
+  - The old class names `HammersteinWienerRegressor` and 
+    `HammersteinWienerClassifier` are now deprecated and will 
+    be removed in version **1.1.3**. Users are encouraged to 
+    transition to the new class names to ensure future compatibility.
+
+  *Example:*
+
+  .. code-block:: python
+
+      from hwm.estimators import HWRegressor, HWClassifier
+
+      # Initialize the regressor
+      regressor = HWRegressor(batch_size=10000)
+      regressor.fit(X_train, y_train)
+      predictions = regressor.predict(X_test)
+
+      # Initialize the classifier
+      classifier = HWClassifier(batch_size=10000)
+      classifier.fit(X_train, y_train)
+      class_predictions = classifier.predict(X_test)
+      class_probabilities = classifier.predict_proba(X_test)
+
+  **Using Deprecated Class Names:**
+
+  .. code-block:: python
+
+      import warnings
+      from hwm.estimators import HammersteinWienerRegressor
+
+      # To display deprecation warnings
+      warnings.simplefilter('default', DeprecationWarning)
+
+      # Initialize the deprecated regressor
+      regressor = HammersteinWienerRegressor(batch_size=5000)
+      # Output: DeprecationWarning: HammersteinWienerRegressor is deprecated 
+      # and will be removed in version 1.2. Use HWRegressor instead.
+      
+      
 **Bug Fixes**
 
-- **Resolved Memory Errors in :class:`hwm.estimators.HammersteinWienerRegressor`**
+- **Resolved Memory Errors in :class:`hwm.estimators.HWRegressor` **
 
-  Addressed memory consumption issues in the `HammersteinWienerRegressor` when processing 
+  Addressed memory consumption issues in the `HWRegressor` when processing 
   large datasets by introducing batch processing mechanisms. This fix ensures stable and 
   efficient model training and prediction without exhausting system memory.
 
@@ -83,8 +134,8 @@ hwm v1.1.0
 
 **Upgrade Notes**
 
-- Users upgrading from version 1.0.1 to 1.1.0 should ensure that their workflows 
-  accommodate the new batch processing parameters in :class:`hwm.estimators.HammersteinWienerRegressor`.
+- Users upgrading from version 1.0.1 to 1.1.4 should ensure that their workflows 
+  accommodate the new batch processing parameters in :class:`hwm.estimators.HWRegressor`.
 - The :func:`hwm.metrics.twa_score` function now accepts both label arrays and 
   probability arrays. Ensure that the input 
   format aligns with the desired usage.

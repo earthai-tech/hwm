@@ -452,7 +452,8 @@ class ProgressBar:
             )
             print()
             print(f"Best Metrics: {best_metric_display}")
-        
+            
+        print()
 
     def update(self, iteration: int, epoch: Optional[int] = None, **metrics):
         """

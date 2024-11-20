@@ -8,44 +8,40 @@ and regression tasks within the gofast library. These models are designed to
 handle complex, time-dependent data by combining dynamic system theory with 
 machine learning techniques.
 """
+
+import warnings 
 from collections import defaultdict
 from numbers import Real
 from typing import Any, Optional,Tuple
 
 import numpy as np
-from sklearn.base import (
-    ClassifierMixin,
-    RegressorMixin,
-)
+from sklearn.base import ClassifierMixin, RegressorMixin
 from sklearn.linear_model import SGDClassifier, SGDRegressor
-from sklearn.metrics import (
-    log_loss,
-    accuracy_score,
-)
+from sklearn.metrics import log_loss, accuracy_score
 from sklearn.utils._param_validation import StrOptions
 from sklearn.utils import check_random_state 
 
 from ..compat.sklearn import Interval, get_sgd_loss_param
-from ..utils.context import EpochBar, ProgressBar 
-from ..utils._core import gen_X_y_batches, get_batch_size, batch_generator 
+from ..decorators import copy_doc, enable_specific_warnings
 from ..metrics import twa_score, prediction_stability_score
-from ..utils.validator import (
-    check_is_fitted,
-    check_X_y,
-    check_array,
-    validate_length_range
-)
-from ._dynamic_system import BaseHammersteinWiener
 from ..utils._core import activator
+from ..utils._core import gen_X_y_batches, get_batch_size, batch_generator
+from ..utils.context import EpochBar, ProgressBar 
+from ..utils.validator import check_is_fitted, check_X_y
+from ..utils.validator import check_array, validate_length_range
 
+from ._dynamic_system import BaseHammersteinWiener
 try:
     from sklearn.utils.multiclass import type_of_target
 except:
     from ..tools.coreutils import type_of_target
 
-__all__= ["HammersteinWienerClassifier","HammersteinWienerRegressor" ]
+__all__= [ 
+     "HWRegressor", "HWClassifier", 
+     "HammersteinWienerClassifier", "HammersteinWienerRegressor", 
+     ]
 
-class HammersteinWienerRegressor(BaseHammersteinWiener, RegressorMixin):
+class HWRegressor(BaseHammersteinWiener, RegressorMixin):
     """
     Hammerstein-Wiener Regressor.
     
@@ -53,7 +49,7 @@ class HammersteinWienerRegressor(BaseHammersteinWiener, RegressorMixin):
     that consists of three main components: a nonlinear input block, a linear
     dynamic block, and a nonlinear output block. This structure allows the HW
     model to capture complex nonlinear relationships in data while maintaining
-    interpretability and computational efficiency.
+    interpretability and computational efficiency [1]_.
     
     .. math::
         \mathbf{y} = f_{\text{output}} \left( \mathbf{H} f_{\text{input}}
@@ -64,6 +60,8 @@ class HammersteinWienerRegressor(BaseHammersteinWiener, RegressorMixin):
     :math:`\mathbf{H}` represents the linear dynamic block (e.g., regression
     coefficients), and
     :math:`f_{\text{output}}` is the nonlinear output estimator.
+    
+    See more in :ref:`User guide <user_guide>`.
     
     Parameters
     ----------
@@ -207,11 +205,11 @@ class HammersteinWienerRegressor(BaseHammersteinWiener, RegressorMixin):
     
     Examples
     --------
-    >>> from hwm.estimators.dynamic_system import HammersteinWienerRegressor
+    >>> from hwm.estimators.dynamic_system import HWRegressor
     >>> from sklearn.preprocessing import StandardScaler
     >>> from sklearn.linear_model import SGDRegressor
     >>> # Initialize the Hammerstein-Wiener regressor with a linear scaler
-    >>> hw_regressor = HammersteinWienerRegressor(
+    >>> hw_regressor = HWRegressor(
     ...     nonlinear_input_estimator=StandardScaler(),
     ...     nonlinear_output_estimator=StandardScaler(),
     ...     p=2,
@@ -242,7 +240,7 @@ class HammersteinWienerRegressor(BaseHammersteinWiener, RegressorMixin):
     - The Hammerstein-Wiener model is particularly effective for systems
       where the input-output relationship can be decomposed into distinct
       nonlinear and linear components. This structure allows the model to
-      capture complex dynamics while maintaining interpretability.
+      capture complex dynamics while maintaining interpretability [2]_.
     
     - Proper selection of the number of lagged observations (`p`) is
       crucial for capturing the temporal dependencies in the data. A higher
@@ -251,7 +249,7 @@ class HammersteinWienerRegressor(BaseHammersteinWiener, RegressorMixin):
     
     - Time-based weighting can be used to emphasize recent observations
       more than older ones, which is useful in time series forecasting where
-      recent data points may be more indicative of future trends.
+      recent data points may be more indicative of future trends [3]_.
     
     - The choice of optimizer (`optimizer`) and learning rate
       (`learning_rate`) significantly impacts the convergence and performance
@@ -265,7 +263,7 @@ class HammersteinWienerRegressor(BaseHammersteinWiener, RegressorMixin):
         The base class for all estimators in scikit-learn, providing
         basic parameter management and utility methods.
     
-    HammersteinModel :class:`~gofast.estimators.HammersteinWienerClassifier`  
+    HammersteinModel :class:`~gofast.estimators.HWClassifier`  
         A concrete implementation of the Hammerstein-Wiener classification 
         model.
     
@@ -887,7 +885,6 @@ class HammersteinWienerRegressor(BaseHammersteinWiener, RegressorMixin):
         if self.verbose > 1:
             print("Predict method completed.")
 
-        
         return y_pred_scaled
 
     def _compute_loss(
@@ -1095,7 +1092,7 @@ class HammersteinWienerRegressor(BaseHammersteinWiener, RegressorMixin):
         
         return y
 
-class HammersteinWienerClassifier(BaseHammersteinWiener, ClassifierMixin):
+class HWClassifier(BaseHammersteinWiener, ClassifierMixin):
     """
     Hammerstein-Wiener Classifier.
     
@@ -1118,7 +1115,9 @@ class HammersteinWienerClassifier(BaseHammersteinWiener, ClassifierMixin):
     The `HammersteinWienerClassifier` extends the base HW model to handle
     classification tasks. It incorporates a loss function tailored for
     classification, such as cross-entropy, enabling the model to predict
-    categorical outcomes effectively.
+    categorical outcomes effectively [1]_.
+    
+    See more in :ref:`User guide <user_guide>`.
     
     Parameters
     ----------
@@ -1253,7 +1252,7 @@ class HammersteinWienerClassifier(BaseHammersteinWiener, ClassifierMixin):
     
     Examples
     --------
-    >>> from gofast.estimators.dynamic_system import HammersteinWienerClassifier
+    >>> from gofast.estimators.dynamic_system import HWClassifier
     >>> from sklearn.preprocessing import StandardScaler
     >>> from sklearn.linear_model import SGDRegressor
     >>> from sklearn.datasets import make_classification
@@ -1265,7 +1264,7 @@ class HammersteinWienerClassifier(BaseHammersteinWiener, ClassifierMixin):
     ...     X, y, test_size=0.2, random_state=42
     ... )
     >>> # Initialize the Hammerstein-Wiener classifier with a linear scaler
-    >>> hw_classifier = HammersteinWienerClassifier(
+    >>> hw_classifier = HWClassifier(
     ...     nonlinear_input_estimator=StandardScaler(),
     ...     nonlinear_output_estimator=StandardScaler(),
     ...     p=2,
@@ -1297,12 +1296,12 @@ class HammersteinWienerClassifier(BaseHammersteinWiener, ClassifierMixin):
     - The Hammerstein-Wiener model is particularly effective for classification
       tasks where the input-output relationship can be decomposed into distinct
       nonlinear and linear components. This structure allows the model to
-      capture complex dynamics while maintaining interpretability.
+      capture complex dynamics while maintaining interpretability [2]_.
     
     - Proper selection of the number of lagged observations (`p`) is
       crucial for capturing the temporal dependencies in the data. A higher
       value of `p` allows the model to consider more past observations but may
-      increase computational complexity.
+      increase computational complexity [3]_.
     
     - Time-based weighting can be used to emphasize recent observations
       more than older ones, which is useful in time series classification
@@ -1312,7 +1311,7 @@ class HammersteinWienerClassifier(BaseHammersteinWiener, ClassifierMixin):
       (`learning_rate`) significantly impacts the convergence and performance
       of the linear dynamic block. It is advisable to experiment with
       different optimizers and learning rates based on the specific dataset
-      and problem.
+      and problem [4]_.
     
     See Also
     --------
@@ -1991,7 +1990,6 @@ class HammersteinWienerClassifier(BaseHammersteinWiener, ClassifierMixin):
                 loss_batch = log_loss(
                     y_true_batch, y_pred_proba_batch, 
                     # labels=self.classes_, 
-                    eps=self.epsilon
                 )
                 total_loss += loss_batch * y_true_batch.shape[0]
             elif self.loss == "time_weighted_cross_entropy":
@@ -2002,7 +2000,7 @@ class HammersteinWienerClassifier(BaseHammersteinWiener, ClassifierMixin):
                     y_true_batch, y_pred_proba_batch, 
                     sample_weight=weights_batch, 
                     # labels=self.classes_, 
-                    eps=self.epsilon
+                    # eps=self.epsilon
                 )
                 total_loss += loss_batch * y_true_batch.shape[0]
             else:
@@ -2014,3 +2012,138 @@ class HammersteinWienerClassifier(BaseHammersteinWiener, ClassifierMixin):
             print(f"Computed loss: {loss}")
 
         return loss
+ 
+_deprecated_docstring = """ 
+.. deprecated:: 1.1.3
+    `{old_class}` is deprecated and will be removed in 
+    version 1.2. Use `{new_class}` instead.
+"""
+
+@copy_doc(
+    source=HWRegressor,
+    docstring=_deprecated_docstring.format(
+        old_class="HammersteinWienerRegressor",
+        new_class="HWRegressor"
+    ),
+    replace=False,
+    copy_attrs=None
+)
+@enable_specific_warnings(
+    categories=FutureWarning,
+    messages="HammersteinWienerRegressor is deprecated*"
+)
+class HammersteinWienerRegressor(HWRegressor):
+    def __init__(
+        self, 
+        nonlinear_input_estimator=None,
+        nonlinear_output_estimator=None,
+        p=1,
+        loss="mse",
+        output_scale=None,
+        time_weighting="linear",
+        feature_engineering='auto',
+        delta=1.0,
+        epsilon=1e-8,
+        shuffle=True, 
+        batch_size="auto", 
+        optimizer='adam',
+        learning_rate=0.001,
+        max_iter=100,
+        tol=1e-3,
+        early_stopping=False,
+        validation_fraction=0.1, 
+        n_iter_no_change=5,
+        random_state=None, 
+        n_jobs=None,
+        verbose=1
+        ):
+            warnings.warn(
+                "HammersteinWienerRegressor is deprecated and will be removed "
+                "in version 1.2. Use HWRegressor instead.",
+                FutureWarning,
+                stacklevel=2
+            )
+            super().__init__(
+                nonlinear_input_estimator=nonlinear_input_estimator,
+                nonlinear_output_estimator=nonlinear_output_estimator,
+                p=p,
+                feature_engineering=feature_engineering,
+                n_jobs=n_jobs,
+                verbose=verbose,
+                optimizer=optimizer,
+                learning_rate=learning_rate,
+                batch_size=batch_size,
+                max_iter=max_iter,
+                tol=tol,
+                early_stopping=early_stopping,
+                validation_fraction=validation_fraction,
+                n_iter_no_change=n_iter_no_change,
+                shuffle=shuffle,
+                epsilon=epsilon,
+                time_weighting=time_weighting,
+                random_state=random_state 
+            )
+
+@copy_doc(
+    source=HWClassifier,
+    docstring=_deprecated_docstring.format(
+        old_class="HammersteinWienerClassifier",
+        new_class="HWClassifier"
+    ),
+    replace=False,
+    copy_attrs=None
+)
+@enable_specific_warnings(
+    categories=FutureWarning,
+    messages="HammersteinWienerClassifier is deprecated*"
+)
+class HammersteinWienerClassifier(HWClassifier):
+    def __init__(
+        self, 
+        nonlinear_input_estimator=None,
+        nonlinear_output_estimator=None,
+        p=1,
+        loss="cross_entropy",
+        time_weighting="linear",
+        feature_engineering='auto',
+        epsilon=1e-8,
+        shuffle=True, 
+        batch_size="auto", 
+        optimizer='adam',
+        learning_rate=0.001,
+        max_iter=100,
+        tol=1e-3,
+        early_stopping=False,
+        validation_fraction=0.1, 
+        n_iter_no_change=5,
+        random_state=None,
+        n_jobs=None,
+        verbose=1
+        ):
+            warnings.warn(
+                "HammersteinWienerClassifier is deprecated and will be removed "
+                "in version 1.1.3. Use HWClassifier instead.",
+                FutureWarning,
+                stacklevel=2
+            )
+            
+            super().__init__(
+                nonlinear_input_estimator=nonlinear_input_estimator,
+                nonlinear_output_estimator=nonlinear_output_estimator,
+                p=p,
+                feature_engineering=feature_engineering,
+                n_jobs=n_jobs,
+                verbose=verbose,
+                optimizer=optimizer,
+                learning_rate=learning_rate,
+                batch_size=batch_size,
+                max_iter=max_iter,
+                tol=tol,
+                early_stopping=early_stopping,
+                validation_fraction=validation_fraction,
+                n_iter_no_change=n_iter_no_change,
+                shuffle=shuffle,
+                epsilon=epsilon,
+                time_weighting=time_weighting,
+                random_state=random_state
+            )
