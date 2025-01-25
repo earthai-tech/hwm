@@ -21,7 +21,10 @@ HWM requires **Python 3.9** or later. Install it from [PyPI](https://pypi.org/pr
 ```bash
 pip install hwm
 ```
-
+or from [Anaconda](https://anaconda.org/conda-forge/hwm) using `conda`: 
+```bash
+conda install conda-forge::hwm
+```
 For detailed installation instructions, refer to the [Installation Guide](https://hwm.readthedocs.io/en/latest/installation.html).
 
 ## 🏁 Getting Started
