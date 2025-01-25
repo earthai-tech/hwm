@@ -3,6 +3,7 @@
 [![License](https://img.shields.io/badge/license-BSD--3--Clause-blue.svg)](LICENSE)  
 [![PyPI version](https://badge.fury.io/py/hwm.svg)](https://badge.fury.io/py/hwm)  
 [![Documentation Status](https://readthedocs.org/projects/hwm/badge/?version=stable)](https://hwm.readthedocs.io/en/stable/)
+[![Anaconda-Server Badge](https://anaconda.org/conda-forge/hwm/badges/version.svg)](https://anaconda.org/conda-forge/hwm)
 
 HWM is a **Python toolkit for adaptive dynamic system modeling**, designed to capture complex nonlinear and linear relationships in data through the Hammerstein-Wiener architecture. With a flexible, modular design, HWM integrates seamlessly with [Scikit-learn](https://scikit-learn.org/), enabling streamlined workflows for regression, classification, and time-series forecasting tasks.
 
