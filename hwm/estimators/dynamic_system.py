@@ -1252,7 +1252,7 @@ class HWClassifier(BaseHammersteinWiener, ClassifierMixin):
     
     Examples
     --------
-    >>> from gofast.estimators.dynamic_system import HWClassifier
+    >>> from hwm.estimators.dynamic_system import HWClassifier
     >>> from sklearn.preprocessing import StandardScaler
     >>> from sklearn.linear_model import SGDRegressor
     >>> from sklearn.datasets import make_classification

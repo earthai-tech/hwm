@@ -549,17 +549,17 @@ class ProgressBar:
                     # Track maximum values for other performance metrics
                     if value > self.best_metrics_.get(metric, 0.0):
                         self.best_metrics_[metric] = value
-                
+
     def _print_progress(
-        self, 
-        progress: float, 
-        epoch: Optional[int] = None,
-        time_elapsed: Optional[float] = None, 
-        **metrics
-    ):
+            self, 
+            progress: float, 
+            epoch: Optional[int] = None,
+            time_elapsed: Optional[float] = None, 
+            **metrics
+        ):
         """
         Prints the progress bar to the console.
-
+    
         Parameters
         ----------
         progress : float
@@ -574,36 +574,42 @@ class ProgressBar:
         """
         completed = int(progress * self.length)  # Number of '=' characters
         remaining = self.length - completed  # Number of '.' characters
-
+    
         if progress < 1.0:
             # Progress bar with '>' indicating current progress
             bar = '=' * completed + '>' + '.' * (remaining - 1)
+            # Calculate the remaining time as the time already spent scaled by progress
+            if time_elapsed is not None and progress > 0:
+                remaining_time = (time_elapsed / progress) - time_elapsed
+                time_info = f" - ETA: {remaining_time:.2f}s"
+            else:
+                time_info = ""
         else:
             # Fully completed progress bar
             bar = '=' * self.length
-
-        percent = f"{100 * progress:.{self.decimals}f}%"
-
+            time_info = ( 
+                f" - Time Elapsed: {time_elapsed:.2f}s"
+                if time_elapsed is not None else ""
+            )
+    
+        percent = f"{100 * progress:.{self.decimals}f}%" 
+    
         # Display epoch information if provided
         epoch_info = f"Epoch {epoch}/{self.total} " if epoch is not None else ''
-
-        # Display time elapsed if provided
-        time_info = (
-            f" - ETA: {time_elapsed:.2f}s" 
-            if time_elapsed is not None else ""
-        )
-
+    
         # Format and update best metrics
         metrics_info = self._format_metrics(**metrics)
         self._update_best_metrics(metrics)
-
+    
         # Construct the full progress bar display string
         
         display = (
             f'\r{epoch_info}{self.prefix} {self.iteration}/{self.steps} '
             f'[{bar}] {percent} {self.suffix} {metrics_info}{time_info}'
         )
-
+    
         # Output the progress bar to the console
         sys.stdout.write(display)
         sys.stdout.flush()
+        
+        
